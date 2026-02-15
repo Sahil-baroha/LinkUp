@@ -1,5 +1,4 @@
 import dns from 'node:dns';
-
 // Force usage of Google DNS for this Node process
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
@@ -7,6 +6,8 @@ import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import userRoutes from "./routes/user.routes.js";
+// import postRoutes from "./routes/post.routes.js";
 dotenv.config();
 const Murl = process.env.MONGO_URL;
 const PORT = process.env.PORT || 3000;
@@ -16,6 +17,8 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// app.use("/api/v1/users", postRoutes);
+app.use("/api/v1/users", userRoutes);
 
 const start = async () => {
     try {
