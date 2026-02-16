@@ -92,3 +92,37 @@ export const login = async (req, res) => {
 
 
 }
+
+
+export const uploadProfilePicture = async (req, res) => {
+    const token = req.cookies.token;
+    try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        console.log("Decoded : ", decoded);
+        const user = await User.findById(decoded.id);
+        console.log("User : ", user);
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+                error: "Not Found"
+            })
+        }
+
+        user.profilePicture = req.file.path;
+        await user.save();
+        return res.status(200).json({
+            success: true,
+            message: "Profile picture updated successfully",
+            profilePicture: user.profilePicture
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+            error: error.message
+        })
+    }
+}

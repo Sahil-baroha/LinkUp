@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { register } from "../controllers/user.controller.js";
+import { register, uploadProfilePicture } from "../controllers/user.controller.js";
 import { login } from "../controllers/user.controller.js";
 import multer from "multer";
 
@@ -17,7 +17,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage })
 
 
-router.route("/update_profile_picture").post(upload.single("profileImage"), updateProfilePicture)
+router.route("/update_profile_picture").post(upload.single("profileImage"), uploadProfilePicture)
 router.route('/register').post(register)
 router.route('/login').post(login)
 

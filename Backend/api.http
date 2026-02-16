@@ -19,3 +19,14 @@ Content-Type: application/json
     "email": "rahul@gmail.com",
     "password": "123456"
 }
+
+
+###
+
+POST http://localhost:3000/api/v1/users/update_profile_picture HTTP/1.1
+Content-Type: application/json
+
+{
+    "profileImage": "./uploads/1755323045123-profile.jpg"
+}
+
