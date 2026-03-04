@@ -96,6 +96,7 @@ export const login = async (req, res) => {
 
 export const uploadProfilePicture = async (req, res) => {
     const token = req.cookies.token;
+    console.log("Token : ", token);
     try {
         const decoded = jwt.verify(token, process.env.JWT_SECRET);
         console.log("Decoded : ", decoded);
@@ -111,10 +112,17 @@ export const uploadProfilePicture = async (req, res) => {
         }
 
         user.profilePicture = req.file.path;
+        if (!req.file) {
+            return res.status(400).json({
+                success: false,
+                message: "No file uploaded"
+            });
+        }
+
         await user.save();
         return res.status(200).json({
             success: true,
-            message: "Profile picture updated successfully",
+            message: "Profile picture uploaded successfully",
             profilePicture: user.profilePicture
         })
 
@@ -126,3 +134,48 @@ export const uploadProfilePicture = async (req, res) => {
         })
     }
 }
+
+export const updateUserProfile = async (req, res) => {
+    try {
+        const { token, ...newUserData } = req.body;
+        const user = await User.findOne({ token });
+
+        if (!user) {
+            return res.status(404).json({
+                success: false,
+                message: "User not found",
+                error: "Not Found"
+            })
+        }
+        const { username, email } = newUserData;
+        const existingUser = await User.findOne({ or$: [{ username }, { email }] })
+
+        if (existingUser || String(existingUser._id !== String(user._id))) {
+            return res.status(400).json({
+                success: false,
+                message: "User already exists",
+                error: "Bad Request"
+            })
+        }
+
+        Object.assign(user, newUserData);
+        await user.save();
+        return res.status(200).json({
+            success: true,
+            message: "User updated successfully",
+            user
+        })
+
+    } catch (error) {
+        return res.status(500).json({
+            success: false,
+            message: error.message,
+            error: error.message
+        })
+    }
+}
+
+
+
+
+// Review this code and Understand how the (updateUserProfile) Flow works , also methods like Object.assign , object Deconstructor with rest Operator 17/2/26 11:45 PM

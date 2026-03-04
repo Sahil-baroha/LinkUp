@@ -7,6 +7,7 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import userRoutes from "./routes/user.routes.js";
+import cookieParser from "cookie-parser";
 // import postRoutes from "./routes/post.routes.js";
 dotenv.config();
 const Murl = process.env.MONGO_URL;
@@ -16,6 +17,7 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.use(cookieParser());
 
 // app.use("/api/v1/users", postRoutes);
 app.use("/api/v1/users", userRoutes);

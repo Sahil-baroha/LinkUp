@@ -20,5 +20,7 @@ const upload = multer({ storage: storage })
 router.route("/update_profile_picture").post(upload.single("profileImage"), uploadProfilePicture)
 router.route('/register').post(register)
 router.route('/login').post(login)
+router.route('/user_update').post(updateUserProfile)
+
 
 export default router;
