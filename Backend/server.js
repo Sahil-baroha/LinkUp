@@ -22,6 +22,10 @@ app.use(cookieParser());
 // app.use("/api/v1/users", postRoutes);
 app.use("/api/v1/users", userRoutes);
 
+// Global Error Handler
+import { errorHandler } from "./middleware/error-handler.middleware.js";
+app.use(errorHandler);
+
 const start = async () => {
     try {
         await mongoose.connect(Murl, {

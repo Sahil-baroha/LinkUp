@@ -27,16 +27,12 @@ const userSchema = mongoose.Schema({
         type: String,
         default: ''
     },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
-    },
 
-})
+}, { timestamps: true });
+
+// Add compound indexes for quick querying
+userSchema.index({ email: 1 });
+userSchema.index({ username: 1 });
 
 const User = mongoose.model("User", userSchema);
 
