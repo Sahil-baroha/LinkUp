@@ -1,63 +1,142 @@
 # LinkUp
 
-LinkUp is a full-stack LinkedIn clone that allows users to create profiles, connect with professionals, share posts, and build a professional network. Built using the MERN stack with authentication, media uploads, and PDF resume generation.
-
-**Tags:** `mern` `mongodb` `express` `next` `social-network` `linkedin-clone` `authentication` `jwt` `fullstack-project` `web-development`
+> A LinkedIn clone for professionals — built with the MERN stack using a production-grade layered backend architecture.
 
 ---
 
-## Architecture Changelog
+## Project Overview
 
-### v1.1.0 — User Module Refactoring (March 2026)
+LinkUp is a full-stack social networking platform inspired by LinkedIn. It allows users to:
 
-**Summary:** Restructured the User module from a monolithic controller pattern to a production-grade **Layered Architecture** (Controller → Service → Repository) following enterprise Node.js backend standards.
+- Register and authenticate with secure JWT-based sessions
+- Upload and manage profile pictures
+- Update their professional profile
+- _(Coming soon)_ create and share posts, and build a professional connections network
 
-#### What Changed
+The project is built incrementally using the MERN stack (MongoDB, Express, React/Next.js, Node.js).
 
-| Area | Before | After |
-|------|--------|-------|
-| **Architecture** | Single controller with mixed concerns | Controller → Service → Repository separation |
-| **Authentication** | JWT logic embedded in each controller | Stateless JWT middleware (`auth.middleware.js`) |
-| **Validation** | Manual `if/else` checks | Zod schemas + validation middleware |
-| **Error Handling** | Per-function `try/catch` blocks | Global error handler + custom error classes |
-| **API Responses** | Inconsistent JSON shapes | Standardized `ApiResponse` utility |
-| **Caching** | None | Redis cache layer at the repository level |
-| **Database** | No indexes on query-heavy fields | Compound indexes on `email` and `username` |
+---
 
-#### New Files Introduced
+## Tech Stack
 
-- `services/user.service.js` — Business logic (password hashing, token generation, authorization)
-- `repositories/user.repository.js` — Database abstraction with Redis cache-aside pattern
-- `middleware/auth.middleware.js` — Stateless JWT authentication
-- `middleware/validation.middleware.js` — Zod schema enforcement
-- `middleware/error-handler.middleware.js` — Centralized error catching
-- `validators/user.validator.js` — Input schemas for register, login, and profile update
-- `utils/errors.js` — Custom error classes (`NotFoundError`, `ConflictError`, etc.)
-- `utils/response.js` — Standardized API response formatter
-- `utils/cache.js` — Redis caching service with graceful fallback
+| Layer | Technology |
+|-------|-----------|
+| **Runtime** | Node.js (ESM) |
+| **Framework** | Express.js |
+| **Database** | MongoDB via Mongoose |
+| **Cache** | Redis (optional, graceful fallback) |
+| **Auth** | Stateless JWT stored in HttpOnly cookies |
+| **Validation** | Zod |
+| **File Uploads** | Multer (disk storage) |
+| **Frontend** | Next.js _(in progress)_ |
 
-#### Impact
+---
 
-- Controller code reduced by **83%** (181 → 30 lines)
-- All endpoints now return consistent `{ success, message, data }` responses
-- Business logic is fully decoupled from HTTP and database layers
-- System is prepared for horizontal scaling with stateless auth and cache-first reads
+## Backend Structure
+
+```
+Backend/
+├── controllers/        → HTTP request handlers (thin, delegate to services)
+├── services/           → Business logic (hashing, tokens, rules)
+├── repositories/       → Database abstraction + Redis cache layer
+├── models/             → Mongoose schemas
+├── routes/             → URL definitions and middleware chains
+├── middleware/         → Auth, validation, error handling
+├── validators/         → Zod input schemas
+├── utils/              → Shared helpers (errors, response, cache)
+└── server.js           → App entry point
+```
+
+---
+
+## Architecture Overview
+
+The backend follows a **Separation of Concerns** pattern with three distinct layers:
+
+```
+HTTP Request
+    │
+    ▼
+Middleware  →  Controller  →  Service  →  Repository  →  MongoDB / Redis
+```
+
+Each layer has a single responsibility:
+
+| Layer | Responsibility |
+|-------|---------------|
+| **Controller** | Reads from `req`, calls the service, sends the response |
+| **Service** | Enforces business rules, throws typed errors |
+| **Repository** | Runs database queries per MongoDB/Redis |
+
+→ **Deep dive:** [`docs/architecture.md`](Backend/docs/architecture.md)
 
 ---
 
 ## Getting Started
 
 ```bash
-cd Backend
+# Clone the repository
+git clone <repo-url>
+cd linkup/Backend
+
+# Install dependencies
 npm install
+
+# Set up environment variables
+cp .env.example .env  # then fill in the values
+
+# Start the development server
 npm run dev
 ```
 
-Ensure the following environment variables are set in `.env`:
+### Environment Variables
+
+Create a `.env` file in the `Backend/` directory:
 
 ```
 MONGO_URL=<your-mongodb-uri>
-JWT_SECRET=<your-jwt-secret>
+JWT_SECRET=<your-long-secret-key>
 PORT=3000
-REDIS_URL=<optional-redis-uri>
+REDIS_URL=redis://localhost:6379   # optional
 ```
+
+→ See [`docs/development.md`](docs/development.md) for full setup details.
+
+---
+
+## Available Endpoints
+
+| Method | Endpoint | Auth | Description |
+|--------|----------|------|-------------|
+| `POST` | `/api/v1/users/register` | ❌ | Create a new account |
+| `POST` | `/api/v1/users/login` | ❌ | Login and receive session token |
+| `POST` | `/api/v1/users/user_update` | ✅ | Update profile fields |
+| `POST` | `/api/v1/users/update_profile_picture` | ✅ | Upload a profile image |
+
+→ Full API reference: [`docs/api.md`](docs/api.md)
+
+---
+
+## Documentation Guide
+
+| Document | What it covers |
+|----------|---------------|
+| [`docs/architecture.md`](docs/architecture.md) | Layered architecture, middleware pipeline, request lifecycle, error propagation, cache-aside pattern |
+| [`docs/api.md`](docs/api.md) | All API endpoints, request shapes, response formats, validation rules |
+| [`docs/database.md`](docs/database.md) | Mongoose models, indexes, Redis caching, repository methods |
+| [`docs/development.md`](docs/development.md) | Project conventions, how to add a new endpoint, error and response patterns |
+| [`docs/changelog.md`](docs/changelog.md) | Phase-by-phase history of major changes |
+
+---
+
+## Development Workflow
+
+The project is built in phases. Each phase introduces a new feature module.
+
+- **Phase 1** — Initial Express + MongoDB setup
+- **Phase 2** — User module with full layered architecture ✅ _(current)_
+- **Phase 3** — Posts module _(planned)_
+- **Phase 4** — Connections / follows _(planned)_
+- **Phase 5** — Notifications and feed _(planned)_
+
+→ See [`docs/changelog.md`](docs/changelog.md) for full phase history.
