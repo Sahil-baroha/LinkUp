@@ -1,77 +1,59 @@
-import bcrypt from "bcrypt";
-import jwt from "jsonwebtoken";
 import { UserRepository } from "../repositories/user.repository.js";
-import { ConflictError, NotFoundError, UnauthorizedError } from "../utils/errors.js";
+import { NotFoundError, ConflictError, ForbiddenError } from "../utils/errors.js";
+
+const userRepository = new UserRepository();
 
 export class UserService {
-    constructor() {
-        this.userRepository = new UserRepository();
+    /**
+     * Fetch a single active user by ID, excluding password.
+     */
+    async getUserById(id) {
+        const user = await userRepository.findById(id);
+        if (!user) throw new NotFoundError("User not found");
+        if (!user.active) throw new NotFoundError("User not found");
+        return user;
     }
 
-    async register(userData) {
-        const existingUser = await this.userRepository.checkExists(userData.email, userData.username);
-        if (existingUser) {
-            throw new ConflictError("User with this email or username already exists");
+    /**
+     * Update only the allowed profile fields (username and/or profilePicture).
+     * Enforces ownership — users can only update their own profile.
+     */
+    async updateProfile(requesterId, targetId, updates) {
+        if (String(requesterId) !== String(targetId)) {
+            throw new ForbiddenError("You can only update your own profile");
         }
 
-        const hashedPassword = await bcrypt.hash(userData.password, 10);
-
-        const user = await this.userRepository.create({
-            ...userData,
-            password: hashedPassword,
-        });
-
-        const { password, ...userWithoutPassword } = user.toObject();
-        return userWithoutPassword;
-    }
-
-    async login(email, password) {
-        const user = await this.userRepository.findByEmail(email);
-        if (!user) {
-            throw new NotFoundError("User not found");
-        }
-
-        const isPasswordValid = await bcrypt.compare(password, user.password);
-        if (!isPasswordValid) {
-            throw new UnauthorizedError("Invalid credentials");
-        }
-
-        const token = this.generateToken({ id: user._id });
-
-        const { password: _, ...userWithoutPassword } = user.toObject();
-        return { user: userWithoutPassword, token };
-    }
-
-    async updateProfilePicture(userId, filePath) {
-        const user = await this.userRepository.findById(userId);
-        if (!user) {
-            throw new NotFoundError("User not found");
-        }
-
-        const updatedUser = await this.userRepository.update(userId, { profilePicture: filePath });
-        const { password, ...userWithoutPassword } = updatedUser.toObject();
-        return userWithoutPassword;
-    }
-
-    async updateProfile(userId, updateData) {
-        const user = await this.userRepository.findById(userId);
-        if (!user) {
-            throw new NotFoundError("User not found");
-        }
-
-        if (updateData.email || updateData.username) {
-            const existingUser = await this.userRepository.checkExists(updateData.email, updateData.username);
-            if (existingUser && String(existingUser._id) !== String(userId)) {
-                throw new ConflictError("Email or username is already taken");
+        if (updates.username) {
+            const existing = await userRepository.findByUsername(updates.username);
+            if (existing && String(existing._id) !== String(targetId)) {
+                throw new ConflictError("Username is already taken");
             }
         }
 
-        const updatedUser = await this.userRepository.update(userId, updateData);
-        const { password, ...userWithoutPassword } = updatedUser.toObject();
-        return userWithoutPassword;
+        const user = await userRepository.update(targetId, updates);
+        if (!user) throw new NotFoundError("User not found");
+        return user;
     }
 
-    generateToken(payload) {
-        return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+    /**
+     * Search for users by username or name.
+     * Excludes inactive accounts. Results are paginated.
+     */
+    async searchUsers(query, page, limit) {
+        return await userRepository.search(query, page, limit);
+    }
+
+    /**
+     * Soft-delete an account by setting active = false.
+     * Enforces ownership — users can only deactivate their own account.
+     */
+    async deactivateAccount(requesterId, targetId) {
+        if (String(requesterId) !== String(targetId)) {
+            throw new ForbiddenError("You can only deactivate your own account");
+        }
+
+        const user = await userRepository.softDelete(targetId);
+        if (!user) throw new NotFoundError("User not found");
+        return { message: "Account deactivated successfully" };
     }
 }

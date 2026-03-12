@@ -1,9 +1,9 @@
 import { Router } from "express";
 import multer from "multer";
 
-import { register, uploadProfilePicture, updateUserProfile, login } from "../controllers/user.controller.js";
+import { getUserById, updateUserProfile, searchUsers, deleteUser } from "../controllers/user.controller.js";
 import { validate } from "../middleware/validation.middleware.js";
-import { registerSchema, loginSchema, updateProfileSchema } from "../validators/user.validator.js";
+import { updateUserSchema, searchUserSchema } from "../validators/user.validator.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 
 const router = Router();
@@ -13,19 +13,22 @@ const storage = multer.diskStorage({
         cb(null, 'uploads/')
     },
     filename: function (req, file, cb) {
-        cb(null, Date.now() + '-' + file.originalname)
+        cb(null, `${Date.now()}-${file.originalname}`)
     }
-})
+});
 
-const upload = multer({ storage: storage })
+const upload = multer({ storage });
 
+// GET /users/search — must be defined BEFORE /users/:id to avoid :id catching "search"
+router.get("/search", authenticate, validate(searchUserSchema), searchUsers);
 
-router.route("/update_profile_picture").post(authenticate, upload.single("profileImage"), uploadProfilePicture)
+// GET /users/:id
+router.get("/:id", authenticate, getUserById);
 
-router.route('/register').post(validate(registerSchema), register)
+// PATCH /users/:id — restricted to username and profilePicture only
+router.patch("/:id", authenticate, validate(updateUserSchema), updateUserProfile);
 
-router.route('/login').post(validate(loginSchema), login)
-
-router.route('/user_update').post(authenticate, validate(updateProfileSchema), updateUserProfile)
+// DELETE /users/:id — soft delete (sets active = false)
+router.delete("/:id", authenticate, deleteUser);
 
 export default router;
