@@ -1,36 +1,185 @@
-POST http://localhost:3000/api/v1/users/register HTTP/1.1
+### ============================================================
+###  LinkUp API — REST Client Test Suite
+###  Base URL: http://localhost:3000/api/v1
+###  Tip: Run in order — register first, copy token from login
+### ============================================================
+
+@baseUrl = http://localhost:3000/api/v1
+@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5OTBmOGI3YWQ0MWUyY2NhNWY0MzA5ZCIsImlhdCI6MTc3MTMwNTA1MywiZXhwIjoxNzcxMzA4NjUzfQ.SB_tW0gn660L_ANh5Kei2ha2ec4cFUUVbZ492cAvKkI
+@userId = 6990f8b7ad41e2cca5f4309c
+
+
+### ============================================================
+###  AUTH MODULE  — /api/v1/auth
+### ============================================================
+
+### [1] Register a new user
+POST {{baseUrl}}/auth/register HTTP/1.1
 Content-Type: application/json
 
 {
     "name": "Rahul Sharma",
     "email": "rahul@gmail.com",
-    "password": "123456",
+    "password": "password123",
     "username": "rahul_07"
 }
 
 ###
 
-
-
-POST http://localhost:3000/api/v1/users/login HTTP/1.1
+### [2] Register — Validation Error (short password)
+POST {{baseUrl}}/auth/register HTTP/1.1
 Content-Type: application/json
 
 {
-    "email": "rahul@gmail.com",
-    "password": "123456"
+    "name": "Test User",
+    "email": "test@gmail.com",
+    "password": "123",
+    "username": "testuser"
 }
-
 
 ###
 
-POST http://localhost:3000/api/v1/users/update_profile_picture
-Cookie: token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5OTBmOGI3YWQ0MWUyY2NhNWY0MzA5ZCIsImlhdCI6MTc3MTMwNTA1MywiZXhwIjoxNzcxMzA4NjUzfQ.SB_tW0gn660L_ANh5Kei2ha2ec4cFUUVbZ492cAvKkI
-Content-Type: multipart/form-data; boundary=----WebKitFormBoundary7MA4YWxkTrZu0gW
+### [3] Register — Conflict Error (duplicate email/username)
+POST {{baseUrl}}/auth/register HTTP/1.1
+Content-Type: application/json
 
-------WebKitFormBoundary7MA4YWxkTrZu0gW
-Content-Disposition: form-data; name="profileImage"; filename="profile.jpg"
-Content-Type: image/jpeg
+{
+    "name": "Rahul Again",
+    "email": "rahul8@gmail.com",
+    "password": "password123",
+    "username": "rahul_08"
+}
 
-< ./uploads/1755323045123-profile.jpg
-------WebKitFormBoundary7MA4YWxkTrZu0gW--
+###
+
+### [4] Login — Success
+# After running: copy the token from the response and paste into @token above
+POST {{baseUrl}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+    "email": "rahul8@gmail.com",
+    "password": "password123"
+}
+
+###
+
+### [5] Login — Wrong Password (Unauthorized)
+POST {{baseUrl}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+    "email": "rahul8@gmail.com",
+    "password": "wrongpassword"
+}
+
+###
+
+### [6] Login — Non-existent User
+POST {{baseUrl}}/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+    "email": "nobody@gmail.com",
+    "password": "password123"
+}
+
+###
+
+### [7] Logout
+POST {{baseUrl}}/auth/logout HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+
+### ============================================================
+###  USER MODULE  — /api/v1/users
+### ============================================================
+
+### [8] Get User by ID — Success
+# Set @userId to the _id from your register/login response
+GET {{baseUrl}}/users/{{userId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [9] Get User by ID — Not Found
+GET {{baseUrl}}/users/000000000000000000000001 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [10] Get User by ID — No Token (Unauthorized)
+GET {{baseUrl}}/users/{{userId}} HTTP/1.1
+
+###
+
+### [11] Search Users — by name or username
+GET {{baseUrl}}/users/search?q=rahul&page=1&limit=10 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [12] Search Users — empty query (Validation Error)
+GET {{baseUrl}}/users/search?q= HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [13] Update Profile — username only
+PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "username": "rahul_updated"
+}
+
+###
+
+### [14] Update Profile — profilePicture only
+PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "profilePicture": "https://example.com/avatar/rahul.jpg"
+}
+
+###
+
+### [15] Update Profile — Empty body (Validation Error)
+PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{}
+
+###
+
+### [16] Update Profile — Attempting to update another user (Forbidden)
+PATCH {{baseUrl}}/users/000000000000000000000001 HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "username": "hacker_attempt"
+}
+
+###
+
+### [17] Soft Delete (Deactivate Account)
+DELETE {{baseUrl}}/users/{{userId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [18] Soft Delete — Own account check after deactivation
+# Expect: User not found (active = false)
+GET {{baseUrl}}/users/{{userId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+KitFormBoundary7MA4YWxkTrZu0gW--
 
