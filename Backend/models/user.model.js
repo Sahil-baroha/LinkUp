@@ -30,9 +30,7 @@ const userSchema = mongoose.Schema({
 
 }, { timestamps: true });
 
-// Add compound indexes for quick querying
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
+
 
 const User = mongoose.model("User", userSchema);
 

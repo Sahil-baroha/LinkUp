@@ -11,6 +11,9 @@ try {
             maxRetriesPerRequest: 1,
             retryStrategy: () => null // Try once, fail fast
         });
+        redis.on("connect", () => {
+            console.log("Redis connected");
+        });
         redis.on('error', (err) => {
             console.warn('Redis connection failed, continuing without cache.');
             redis.disconnect(); // stop retrying
