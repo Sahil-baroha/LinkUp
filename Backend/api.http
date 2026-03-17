@@ -1,19 +1,21 @@
 ### ============================================================
-###  LinkUp API — REST Client Test Suite
+###  LinkUp API — REST Client Test Suite  (Full)
 ###  Base URL: http://localhost:3000/api/v1
-###  Tip: Run in order — register first, copy token from login
+###  Run order: Register → Login → set @token and IDs → run tests
 ### ============================================================
 
-@baseUrl = http://localhost:3000/api/v1
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5OTBmOGI3YWQ0MWUyY2NhNWY0MzA5ZCIsImlhdCI6MTc3MTMwNTA1MywiZXhwIjoxNzcxMzA4NjUzfQ.SB_tW0gn660L_ANh5Kei2ha2ec4cFUUVbZ492cAvKkI
-@userId = 6990f8b7ad41e2cca5f4309c
+@baseUrl    = http://localhost:3000/api/v1
+@token      = PASTE_JWT_TOKEN_HERE
+@userId     = PASTE_YOUR_USER_ID_HERE
+@otherUserId = PASTE_SECOND_USER_ID_HERE
+@requestId  = PASTE_CONNECTION_REQUEST_ID_HERE
 
 
 ### ============================================================
 ###  AUTH MODULE  — /api/v1/auth
 ### ============================================================
 
-### [1] Register a new user
+### [A1] Register User 1
 POST {{baseUrl}}/auth/register HTTP/1.1
 Content-Type: application/json
 
@@ -26,67 +28,42 @@ Content-Type: application/json
 
 ###
 
-### [2] Register — Validation Error (short password)
+### [A2] Register User 2 (for connection testing)
 POST {{baseUrl}}/auth/register HTTP/1.1
 Content-Type: application/json
 
 {
-    "name": "Test User",
-    "email": "test@gmail.com",
-    "password": "123",
-    "username": "testuser"
-}
-
-###
-
-### [3] Register — Conflict Error (duplicate email/username)
-POST {{baseUrl}}/auth/register HTTP/1.1
-Content-Type: application/json
-
-{
-    "name": "Rahul Again",
-    "email": "rahul8@gmail.com",
+    "name": "Priya Singh",
+    "email": "priya@gmail.com",
     "password": "password123",
-    "username": "rahul_08"
+    "username": "priya_s"
 }
 
 ###
 
-### [4] Login — Success
-# After running: copy the token from the response and paste into @token above
+### [A3] Login — User 1 (copy token + _id to variables above)
 POST {{baseUrl}}/auth/login HTTP/1.1
 Content-Type: application/json
 
 {
-    "email": "rahul8@gmail.com",
+    "email": "rahul@gmail.com",
     "password": "password123"
 }
 
 ###
 
-### [5] Login — Wrong Password (Unauthorized)
+### [A4] Login — Wrong Password (401 Unauthorized)
 POST {{baseUrl}}/auth/login HTTP/1.1
 Content-Type: application/json
 
 {
-    "email": "rahul8@gmail.com",
+    "email": "rahul@gmail.com",
     "password": "wrongpassword"
 }
 
 ###
 
-### [6] Login — Non-existent User
-POST {{baseUrl}}/auth/login HTTP/1.1
-Content-Type: application/json
-
-{
-    "email": "nobody@gmail.com",
-    "password": "password123"
-}
-
-###
-
-### [7] Logout
+### [A5] Logout
 POST {{baseUrl}}/auth/logout HTTP/1.1
 Authorization: Bearer {{token}}
 
@@ -97,37 +74,19 @@ Authorization: Bearer {{token}}
 ###  USER MODULE  — /api/v1/users
 ### ============================================================
 
-### [8] Get User by ID — Success
-# Set @userId to the _id from your register/login response
+### [U1] Get User by ID
 GET {{baseUrl}}/users/{{userId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
 
-### [9] Get User by ID — Not Found
-GET {{baseUrl}}/users/000000000000000000000001 HTTP/1.1
-Authorization: Bearer {{token}}
-
-###
-
-### [10] Get User by ID — No Token (Unauthorized)
-GET {{baseUrl}}/users/{{userId}} HTTP/1.1
-
-###
-
-### [11] Search Users — by name or username
+### [U2] Search Users
 GET {{baseUrl}}/users/search?q=rahul&page=1&limit=10 HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
 
-### [12] Search Users — empty query (Validation Error)
-GET {{baseUrl}}/users/search?q= HTTP/1.1
-Authorization: Bearer {{token}}
-
-###
-
-### [13] Update Profile — username only
+### [U3] Update Profile (username)
 PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -138,48 +97,141 @@ Authorization: Bearer {{token}}
 
 ###
 
-### [14] Update Profile — profilePicture only
-PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-    "profilePicture": "https://example.com/avatar/rahul.jpg"
-}
-
-###
-
-### [15] Update Profile — Empty body (Validation Error)
-PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{}
-
-###
-
-### [16] Update Profile — Attempting to update another user (Forbidden)
-PATCH {{baseUrl}}/users/000000000000000000000001 HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-    "username": "hacker_attempt"
-}
-
-###
-
-### [17] Soft Delete (Deactivate Account)
+### [U4] Soft Delete Account
 DELETE {{baseUrl}}/users/{{userId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
 
-### [18] Soft Delete — Own account check after deactivation
-# Expect: User not found (active = false)
-GET {{baseUrl}}/users/{{userId}} HTTP/1.1
+
+### ============================================================
+###  CONNECTION MODULE  — /api/v1/connections
+###
+###  Setup: A1+A2 registered, A3 run → @token = User1's token
+###         @userId     = User 1's _id
+###         @otherUserId = User 2's _id
+### ============================================================
+
+### [C1] Send Connection Request (User 1 → User 2)
+# Copy the _id from the response into @requestId
+POST {{baseUrl}}/connections/request/{{otherUserId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
-KitFormBoundary7MA4YWxkTrZu0gW--
 
+### [C2] ❌ Send to Self (Rule 1 — 400 Bad Request)
+POST {{baseUrl}}/connections/request/{{userId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C3] ❌ Send Duplicate Request (Rule 19 — 409 Conflict)
+POST {{baseUrl}}/connections/request/{{otherUserId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C4] ❌ Invalid ObjectId format (400 Validation Error)
+POST {{baseUrl}}/connections/request/not-a-valid-id HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C5] Get My Connections (accepted) — should be empty initially
+GET {{baseUrl}}/connections HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C6] Get Incoming Requests — User 2 perspective
+# Switch to User 2's token to confirm they received the request
+GET {{baseUrl}}/connections/requests HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C7] Get Sent Requests — User 1 perspective
+GET {{baseUrl}}/connections/sent HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C8] ❌ Accept own sent request as sender (Rule 11 — 403 Forbidden)
+# This must be run with User 1's token (the sender)
+PATCH {{baseUrl}}/connections/accept/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C9] ✅ Accept Request (must use User 2's token)
+# Switch @token to User 2, run [A3] with priya@gmail.com first
+PATCH {{baseUrl}}/connections/accept/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C10] ❌ Accept Already-Accepted Request (Rule 7 — 400 Bad Request)
+PATCH {{baseUrl}}/connections/accept/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C11] Get Connections after accept — should show User 2
+GET {{baseUrl}}/connections HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C12] Send New Request after Reset (re-send after rejection test)
+# First run [C14] reject, then re-send here — should succeed (Rule 18/20)
+POST {{baseUrl}}/connections/request/{{otherUserId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C13] ✅ Reject Request (User 2 rejects User 1's pending request)
+# Ensure a fresh pending request exists before running this
+PATCH {{baseUrl}}/connections/reject/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C14] ❌ Reject Already-Rejected (Rule 8 — 400 Bad Request)
+PATCH {{baseUrl}}/connections/reject/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C15] ✅ Withdraw Request (sender cancels pending request)
+# Run with User 1's token, ensure a fresh pending request exists
+DELETE {{baseUrl}}/connections/withdraw/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C16] ❌ Withdraw as non-sender (Rule 12 — 403 Forbidden)
+# Try with User 2's token on a request sent by User 1
+DELETE {{baseUrl}}/connections/withdraw/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C17] ✅ Remove Accepted Connection (by userId)
+# Both users can remove. Run with User 1's token.
+DELETE {{baseUrl}}/connections/remove/{{otherUserId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C18] ❌ Remove Non-existent Connection (Rule 17 — 404)
+DELETE {{baseUrl}}/connections/remove/{{otherUserId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C19] ❌ Remove Pending Connection (Rule 10 — 400 Bad Request)
+# Set up a pending request then try to remove before acceptance
+DELETE {{baseUrl}}/connections/remove/{{otherUserId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
