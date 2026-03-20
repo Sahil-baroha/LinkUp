@@ -1,19 +1,27 @@
 ### ============================================================
-###  LinkUp API — REST Client Test Suite
+###  LinkUp API — REST Client Test Suite  (Full)
 ###  Base URL: http://localhost:3000/api/v1
-###  Tip: Run in order — register first, copy token from login
+###
+###  Run order:
+###  1. [A1] Register User 1     → set @userId
+###  2. [A2] Register User 2     → set @otherUserId
+###  3. [A3] Login User 1        → set @token
+###  4. Run post tests           → set @postId from [P1] response
 ### ============================================================
 
-@baseUrl = http://localhost:3000/api/v1
-@token = eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY5OTBmOGI3YWQ0MWUyY2NhNWY0MzA5ZCIsImlhdCI6MTc3MTMwNTA1MywiZXhwIjoxNzcxMzA4NjUzfQ.SB_tW0gn660L_ANh5Kei2ha2ec4cFUUVbZ492cAvKkI
-@userId = 6990f8b7ad41e2cca5f4309c
+@baseUrl      = http://localhost:3000/api/v1
+@token        = PASTE_JWT_TOKEN_HERE
+@userId       = PASTE_YOUR_USER_ID_HERE
+@otherUserId  = PASTE_SECOND_USER_ID_HERE
+@requestId    = PASTE_CONNECTION_REQUEST_ID_HERE
+@postId       = PASTE_POST_ID_HERE
 
 
 ### ============================================================
-###  AUTH MODULE  — /api/v1/auth
+###  AUTH MODULE
 ### ============================================================
 
-### [1] Register a new user
+### [A1] Register User 1
 POST {{baseUrl}}/auth/register HTTP/1.1
 Content-Type: application/json
 
@@ -26,67 +34,42 @@ Content-Type: application/json
 
 ###
 
-### [2] Register — Validation Error (short password)
+### [A2] Register User 2
 POST {{baseUrl}}/auth/register HTTP/1.1
 Content-Type: application/json
 
 {
-    "name": "Test User",
-    "email": "test@gmail.com",
-    "password": "123",
-    "username": "testuser"
-}
-
-###
-
-### [3] Register — Conflict Error (duplicate email/username)
-POST {{baseUrl}}/auth/register HTTP/1.1
-Content-Type: application/json
-
-{
-    "name": "Rahul Again",
-    "email": "rahul8@gmail.com",
+    "name": "Priya Singh",
+    "email": "priya@gmail.com",
     "password": "password123",
-    "username": "rahul_08"
+    "username": "priya_s"
 }
 
 ###
 
-### [4] Login — Success
-# After running: copy the token from the response and paste into @token above
+### [A3] Login — User 1 (copy token + _id to variables above)
 POST {{baseUrl}}/auth/login HTTP/1.1
 Content-Type: application/json
 
 {
-    "email": "rahul8@gmail.com",
+    "email": "rahul@gmail.com",
     "password": "password123"
 }
 
 ###
 
-### [5] Login — Wrong Password (Unauthorized)
+### [A4] Login — Wrong Password (401)
 POST {{baseUrl}}/auth/login HTTP/1.1
 Content-Type: application/json
 
 {
-    "email": "rahul8@gmail.com",
+    "email": "rahul@gmail.com",
     "password": "wrongpassword"
 }
 
 ###
 
-### [6] Login — Non-existent User
-POST {{baseUrl}}/auth/login HTTP/1.1
-Content-Type: application/json
-
-{
-    "email": "nobody@gmail.com",
-    "password": "password123"
-}
-
-###
-
-### [7] Logout
+### [A5] Logout
 POST {{baseUrl}}/auth/logout HTTP/1.1
 Authorization: Bearer {{token}}
 
@@ -94,40 +77,22 @@ Authorization: Bearer {{token}}
 
 
 ### ============================================================
-###  USER MODULE  — /api/v1/users
+###  USER MODULE
 ### ============================================================
 
-### [8] Get User by ID — Success
-# Set @userId to the _id from your register/login response
+### [U1] Get User by ID
 GET {{baseUrl}}/users/{{userId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
 
-### [9] Get User by ID — Not Found
-GET {{baseUrl}}/users/000000000000000000000001 HTTP/1.1
-Authorization: Bearer {{token}}
-
-###
-
-### [10] Get User by ID — No Token (Unauthorized)
-GET {{baseUrl}}/users/{{userId}} HTTP/1.1
-
-###
-
-### [11] Search Users — by name or username
+### [U2] Search Users
 GET {{baseUrl}}/users/search?q=rahul&page=1&limit=10 HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
 
-### [12] Search Users — empty query (Validation Error)
-GET {{baseUrl}}/users/search?q= HTTP/1.1
-Authorization: Bearer {{token}}
-
-###
-
-### [13] Update Profile — username only
+### [U3] Update Profile
 PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
 Content-Type: application/json
 Authorization: Bearer {{token}}
@@ -138,48 +103,220 @@ Authorization: Bearer {{token}}
 
 ###
 
-### [14] Update Profile — profilePicture only
-PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-    "profilePicture": "https://example.com/avatar/rahul.jpg"
-}
-
-###
-
-### [15] Update Profile — Empty body (Validation Error)
-PATCH {{baseUrl}}/users/{{userId}} HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{}
-
-###
-
-### [16] Update Profile — Attempting to update another user (Forbidden)
-PATCH {{baseUrl}}/users/000000000000000000000001 HTTP/1.1
-Content-Type: application/json
-Authorization: Bearer {{token}}
-
-{
-    "username": "hacker_attempt"
-}
-
-###
-
-### [17] Soft Delete (Deactivate Account)
+### [U4] Soft Delete Account
 DELETE {{baseUrl}}/users/{{userId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
 
-### [18] Soft Delete — Own account check after deactivation
-# Expect: User not found (active = false)
-GET {{baseUrl}}/users/{{userId}} HTTP/1.1
+
+### ============================================================
+###  CONNECTION MODULE
+### ============================================================
+
+### [C1] Send Connection Request (User 1 → User 2)
+POST {{baseUrl}}/connections/request/{{otherUserId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
-KitFormBoundary7MA4YWxkTrZu0gW--
 
+### [C2] ❌ Send to Self (400)
+POST {{baseUrl}}/connections/request/{{userId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C3] ❌ Duplicate Request (409)
+POST {{baseUrl}}/connections/request/{{otherUserId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C4] Get Incoming Requests
+GET {{baseUrl}}/connections/requests HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C5] Get Sent Requests
+GET {{baseUrl}}/connections/sent HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C6] Accept Request (use receiver's token)
+PATCH {{baseUrl}}/connections/accept/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C7] Reject Request (use receiver's token)
+PATCH {{baseUrl}}/connections/reject/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C8] Withdraw Request (use sender's token)
+DELETE {{baseUrl}}/connections/withdraw/{{requestId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C9] Remove Accepted Connection
+DELETE {{baseUrl}}/connections/remove/{{otherUserId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [C10] Get My Connections
+GET {{baseUrl}}/connections HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+
+### ============================================================
+###  POST MODULE
+###  Note: multipart/form-data for image upload.
+###        Text-only posts can use application/json.
+### ============================================================
+
+### [P1] ✅ Create Text-only Post (no image)
+# Copy the _id from the response into @postId
+POST {{baseUrl}}/posts HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "This is my first post on LinkUp! Excited to connect with everyone."
+}
+
+###
+
+### [P2] ✅ Create Post with Image (multipart)
+# Use REST Client's file attachment: < path/to/image.jpg
+POST {{baseUrl}}/posts HTTP/1.1
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=----Boundary
+
+------Boundary
+Content-Disposition: form-data; name="body"
+
+Sharing a photo from my workspace today!
+------Boundary
+Content-Disposition: form-data; name="image"; filename="test.jpg"
+Content-Type: image/jpeg
+
+< ./uploads/test.jpg
+------Boundary--
+
+###
+
+### [P3] ❌ Create Post — Empty Body (400 Validation Error)
+POST {{baseUrl}}/posts HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "   "
+}
+
+###
+
+### [P4] ❌ Create Post — No token (401 Unauthorized)
+POST {{baseUrl}}/posts HTTP/1.1
+Content-Type: application/json
+
+{
+    "body": "This should fail"
+}
+
+###
+
+### [P5] ✅ Get Single Post by ID
+GET {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [P6] ❌ Get Non-existent Post (404)
+GET {{baseUrl}}/posts/000000000000000000000001 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [P7] ❌ Get Post — Invalid ObjectId (400 Validation Error)
+GET {{baseUrl}}/posts/not-a-valid-id HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [P8] ✅ Get All Posts by User
+GET {{baseUrl}}/posts/user/{{userId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [P9] ✅ Update Post — Body only
+PATCH {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Updated: This is my first post with an edit!"
+}
+
+###
+
+### [P10] ❌ Update Post — Same body as current (400 No Changes)
+PATCH {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Updated: This is my first post with an edit!"
+}
+
+###
+
+### [P11] ❌ Update Post — as non-author (403 Forbidden)
+# Login as User 2 first and paste their token here temporarily
+PATCH {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Hacker attempt to edit someone else's post"
+}
+
+###
+
+### [P12] ❌ Update Post — Empty body (400 Validation Error)
+PATCH {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": ""
+}
+
+###
+
+### [P13] ✅ Delete Post
+DELETE {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [P14] ❌ Delete Already-Deleted Post (404)
+DELETE {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [P15] ❌ Delete as Non-Author (403 Forbidden)
+# Login as User 2, create a post, then try to delete it with User 1's token
+DELETE {{baseUrl}}/posts/{{postId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
