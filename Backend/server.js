@@ -9,6 +9,8 @@ import cookieParser from "cookie-parser";
 
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
+import connectionRoutes from "./routes/connection.routes.js";
+import postRoutes from "./routes/post.routes.js";
 import { errorHandler } from "./middleware/error-handler.middleware.js";
 
 dotenv.config();
@@ -24,8 +26,10 @@ app.use(express.json());
 app.use(cookieParser());
 
 // Routes
-app.use("/api/v1/auth", authRoutes);   // Public — register, login, logout
-app.use("/api/v1/users", userRoutes);  // Protected — user management
+app.use("/api/v1/auth", authRoutes);               // Public  — register, login, logout
+app.use("/api/v1/users", userRoutes);               // Protected — user management
+app.use("/api/v1/connections", connectionRoutes);   // Protected — connections
+app.use("/api/v1/posts", postRoutes);               // Protected — posts
 
 // Global error handler — must be last middleware
 app.use(errorHandler);
