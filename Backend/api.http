@@ -1,5 +1,6 @@
 ### ============================================================
 ###  LinkUp API — REST Client Test Suite  (Full)
+###  LinkUp API — REST Client Test Suite  (Full)
 ###  Base URL: http://localhost:3000/api/v1
 ###
 ###  Run order:
@@ -22,6 +23,7 @@
 ### ============================================================
 
 ### [A1] Register User 1
+### [A1] Register User 1
 POST {{baseUrl}}/auth/register HTTP/1.1
 Content-Type: application/json
 
@@ -41,17 +43,22 @@ Content-Type: application/json
 {
     "name": "Priya Singh",
     "email": "priya@gmail.com",
+    "name": "Priya Singh",
+    "email": "priya@gmail.com",
     "password": "password123",
+    "username": "priya_s"
     "username": "priya_s"
 }
 
 ###
 
 ### [A3] Login — User 1 (copy token + _id to variables above)
+### [A3] Login — User 1 (copy token + _id to variables above)
 POST {{baseUrl}}/auth/login HTTP/1.1
 Content-Type: application/json
 
 {
+    "email": "rahul@gmail.com",
     "email": "rahul@gmail.com",
     "password": "password123"
 }
@@ -64,11 +71,13 @@ Content-Type: application/json
 
 {
     "email": "rahul@gmail.com",
+    "email": "rahul@gmail.com",
     "password": "wrongpassword"
 }
 
 ###
 
+### [A5] Logout
 ### [A5] Logout
 POST {{baseUrl}}/auth/logout HTTP/1.1
 Authorization: Bearer {{token}}
@@ -81,11 +90,13 @@ Authorization: Bearer {{token}}
 ### ============================================================
 
 ### [U1] Get User by ID
+### [U1] Get User by ID
 GET {{baseUrl}}/users/{{userId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
 
+### [U2] Search Users
 ### [U2] Search Users
 GET {{baseUrl}}/users/search?q=rahul&page=1&limit=10 HTTP/1.1
 Authorization: Bearer {{token}}
