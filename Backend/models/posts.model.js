@@ -1,32 +1,25 @@
 import mongoose from "mongoose";
 
-const postSchema = mongoose.Schema({
-    userId: {
+const postSchema = new mongoose.Schema({
+    authorId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: "User"
+        ref: "User",
+        required: true
     },
     body: {
         type: String,
-        required: true
+        required: true,
+        trim: true,
+        maxlength: 3000
     },
     image: {
-        type: String,
-        required: true
-    },
-    likes: {
-        type: Number,
-        default: 0
-    },
-    createdAt: {
-        type: Date,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        default: Date.now
+        url: { type: String, default: null },
+        publicId: { type: String, default: null }
     }
-})
+}, { timestamps: true });
+
+postSchema.index({ authorId: 1, createdAt: -1 });
+postSchema.index({ createdAt: -1 });
 
 const Post = mongoose.model("Post", postSchema);
-
 export default Post;
