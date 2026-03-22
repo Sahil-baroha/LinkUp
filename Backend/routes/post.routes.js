@@ -6,6 +6,7 @@ import {
     updatePost,
     deletePost,
 } from "../controllers/post.controller.js";
+import { toggleLike, getLikes } from "../controllers/like.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { uploadSingle } from "../middleware/upload.middleware.js";
 import { validate } from "../middleware/validation.middleware.js";
@@ -38,5 +39,12 @@ router.patch("/:postId", uploadSingle, validate(updatePostSchema), updatePost);
 
 // DELETE /posts/:postId — delete post
 router.delete("/:postId", validate(postIdSchema), deletePost);
+
+// ── Like routes ───────────────────────────────────────────────────────────────
+// POST  /posts/:postId/like  — toggle like/unlike
+router.post("/:postId/like", validate(postIdSchema), toggleLike);
+
+// GET   /posts/:postId/likes — paginated like list + count
+router.get("/:postId/likes", validate(postIdSchema), getLikes);
 
 export default router;
