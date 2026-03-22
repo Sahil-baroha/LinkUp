@@ -380,3 +380,128 @@ GET {{baseUrl}}/posts/{{postId}}/likes?page=1&limit=5 HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
+
+
+### ============================================================
+###  COMMENT MODULE
+###  Setup: ensure @postId is set, @token = author's JWT
+###         set @commentId from [CM1] response after adding a comment
+### ============================================================
+
+@commentId = PASTE_COMMENT_ID_HERE
+
+### [CM1] ✅ Add a Comment to a Post
+# Copy the _id from the response into @commentId above
+POST {{baseUrl}}/posts/{{postId}}/comments HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "This is a great post! Really insightful."
+}
+
+###
+
+### [CM2] ✅ Add Another Comment (different content)
+POST {{baseUrl}}/posts/{{postId}}/comments HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Totally agree with your perspective here."
+}
+
+###
+
+### [CM3] ❌ Add Comment — Empty Body (400 Validation Error)
+POST {{baseUrl}}/posts/{{postId}}/comments HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "   "
+}
+
+###
+
+### [CM4] ❌ Add Comment — Post Does Not Exist (404)
+POST {{baseUrl}}/posts/000000000000000000000001/comments HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Comment on a ghost post"
+}
+
+###
+
+### [CM5] ✅ Get Comments on a Post (paginated)
+GET {{baseUrl}}/posts/{{postId}}/comments HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [CM6] ✅ Get Comments — Custom Pagination
+GET {{baseUrl}}/posts/{{postId}}/comments?page=1&limit=5 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [CM7] ❌ Get Comments — Post Does Not Exist (404)
+GET {{baseUrl}}/posts/000000000000000000000001/comments HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [CM8] ✅ Edit a Comment (author only)
+PATCH {{baseUrl}}/posts/{{postId}}/comments/{{commentId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Edited: This is an even better comment after editing."
+}
+
+###
+
+### [CM9] ❌ Edit — Same Body as Current (400 No Changes Detected)
+PATCH {{baseUrl}}/posts/{{postId}}/comments/{{commentId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Edited: This is an even better comment after editing."
+}
+
+###
+
+### [CM10] ❌ Edit — Non-Author Attempt (403 Forbidden)
+# Login as User 2 and paste their token here to test
+PATCH {{baseUrl}}/posts/{{postId}}/comments/{{commentId}} HTTP/1.1
+Content-Type: application/json
+Authorization: Bearer {{token}}
+
+{
+    "body": "Attempting to edit someone else's comment"
+}
+
+###
+
+### [CM11] ✅ Delete a Comment (comment author)
+DELETE {{baseUrl}}/posts/{{postId}}/comments/{{commentId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [CM12] ❌ Delete — Comment Does Not Exist (404)
+DELETE {{baseUrl}}/posts/{{postId}}/comments/000000000000000000000001 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [CM13] ❌ Delete — Neither Comment nor Post Author (403 Forbidden)
+# Use a third user's token who is neither the comment author nor the post author
+DELETE {{baseUrl}}/posts/{{postId}}/comments/{{commentId}} HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
