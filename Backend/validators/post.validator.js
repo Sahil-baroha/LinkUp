@@ -42,3 +42,40 @@ export const userIdParamSchema = z.object({
         userId: objectIdSchema,
     }),
 });
+
+// POST /posts/:postId/comments — comment body validation
+export const commentBodySchema = z.object({
+    params: z.object({
+        postId: objectIdSchema,
+    }),
+    body: z.object({
+        body: z
+            .string()
+            .min(1, "Comment cannot be empty")
+            .max(1000, "Comment cannot exceed 1000 characters")
+            .refine((val) => val.trim().length > 0, "Comment cannot be whitespace only"),
+    }),
+});
+
+// PATCH|DELETE /posts/:postId/comments/:commentId — both params required
+export const commentParamsSchema = z.object({
+    params: z.object({
+        postId: objectIdSchema,
+        commentId: objectIdSchema,
+    }),
+});
+
+// PATCH /posts/:postId/comments/:commentId — params + body
+export const editCommentSchema = z.object({
+    params: z.object({
+        postId: objectIdSchema,
+        commentId: objectIdSchema,
+    }),
+    body: z.object({
+        body: z
+            .string()
+            .min(1, "Comment cannot be empty")
+            .max(1000, "Comment cannot exceed 1000 characters")
+            .refine((val) => val.trim().length > 0, "Comment cannot be whitespace only"),
+    }),
+});
