@@ -331,3 +331,52 @@ DELETE {{baseUrl}}/posts/{{postId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
+
+
+### ============================================================
+###  LIKE MODULE
+###  Setup: ensure @postId is set from a created post
+### ============================================================
+
+### [L1] ✅ Like a Post (first toggle → liked: true)
+POST {{baseUrl}}/posts/{{postId}}/like HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [L2] ✅ Unlike the Same Post (second toggle → liked: false)
+POST {{baseUrl}}/posts/{{postId}}/like HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [L3] ✅ Like Again — idempotency test (rapid double-like)
+# Run [L3] twice quickly — second must return { liked: true, likeCount } not 500
+POST {{baseUrl}}/posts/{{postId}}/like HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [L4] ❌ Like Non-existent Post (404)
+POST {{baseUrl}}/posts/000000000000000000000001/like HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [L5] ❌ Like — Invalid ObjectId (400 Validation Error)
+POST {{baseUrl}}/posts/not-a-valid-id/like HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [L6] ✅ Get Likes — default page 1, limit 20
+GET {{baseUrl}}/posts/{{postId}}/likes HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [L7] ✅ Get Likes — paginated
+GET {{baseUrl}}/posts/{{postId}}/likes?page=1&limit=5 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
