@@ -7,6 +7,7 @@ import {
     deletePost,
 } from "../controllers/post.controller.js";
 import { toggleLike, getLikes } from "../controllers/like.controller.js";
+import { getComments, addComment, editComment, deleteComment } from "../controllers/comment.controller.js";
 import { authenticate } from "../middleware/auth.middleware.js";
 import { uploadSingle } from "../middleware/upload.middleware.js";
 import { validate } from "../middleware/validation.middleware.js";
@@ -15,6 +16,9 @@ import {
     updatePostSchema,
     postIdSchema,
     userIdParamSchema,
+    commentBodySchema,
+    commentParamsSchema,
+    editCommentSchema,
 } from "../validators/post.validator.js";
 
 const router = Router();
@@ -46,5 +50,18 @@ router.post("/:postId/like", validate(postIdSchema), toggleLike);
 
 // GET   /posts/:postId/likes — paginated like list + count
 router.get("/:postId/likes", validate(postIdSchema), getLikes);
+
+// ── Comment routes ────────────────────────────────────────────────────────────
+// GET    /posts/:postId/comments  — paginated comment list
+router.get("/:postId/comments", validate(postIdSchema), getComments);
+
+// POST   /posts/:postId/comments  — add a comment
+router.post("/:postId/comments", validate(commentBodySchema), addComment);
+
+// PATCH  /posts/:postId/comments/:commentId  — edit a comment
+router.patch("/:postId/comments/:commentId", validate(editCommentSchema), editComment);
+
+// DELETE /posts/:postId/comments/:commentId  — delete a comment
+router.delete("/:postId/comments/:commentId", validate(commentParamsSchema), deleteComment);
 
 export default router;
