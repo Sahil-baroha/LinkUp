@@ -21,5 +21,8 @@ const connectionSchema = new mongoose.Schema({
 // Prevent duplicate requests between the same pair
 connectionSchema.index({ senderId: 1, receiverId: 1 }, { unique: true });
 
+// Feed query index: filter accepted connections by participant efficiently
+connectionSchema.index({ senderId: 1, receiverId: 1, status: 1 });
+
 const Connection = mongoose.model("Connection", connectionSchema);
 export default Connection;  

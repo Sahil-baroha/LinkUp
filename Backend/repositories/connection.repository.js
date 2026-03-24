@@ -88,4 +88,25 @@ export class ConnectionRepository {
             .sort({ createdAt: -1 })
             .lean();
     }
+
+    /**
+     * Feed Step 1: Resolve the set of user IDs this user is connected to.
+     * Returns plain ObjectId array — caller maps these into the post query.
+     *
+     * Uses lean() + select() to avoid loading unnecessary fields.
+     * Returns [] when the user has no accepted connections (feed short-circuit).
+     */
+    async getAcceptedConnectionIds(userId) {
+        const connections = await Connection.find({
+            $or: [{ senderId: userId }, { receiverId: userId }],
+            status: "accepted",
+        })
+            .select("senderId receiverId")
+            .lean();
+
+        // Extract the OTHER party's ID from each connection document
+        return connections.map((c) =>
+            c.senderId.toString() === userId.toString() ? c.receiverId : c.senderId
+        );
+    }
 }

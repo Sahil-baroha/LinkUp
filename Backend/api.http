@@ -505,3 +505,51 @@ DELETE {{baseUrl}}/posts/{{postId}}/comments/{{commentId}} HTTP/1.1
 Authorization: Bearer {{token}}
 
 ###
+
+
+### ============================================================
+###  FEED MODULE
+###  Setup:
+###    1. Ensure two users are registered and connected (status: accepted)
+###    2. User 2 has created at least one post
+###    3. Log in as User 1 and set @token
+###  The feed returns posts from User 1's accepted connections (User 2's posts)
+### ============================================================
+
+### [F1] ✅ Get Feed — First Page (no cursor, uses now as default)
+GET {{baseUrl}}/feed HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [F2] ✅ Get Feed — Custom Limit
+GET {{baseUrl}}/feed?limit=5 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [F3] ✅ Get Feed — With Cursor (pagination)
+# Copy nextCursor from [F1] response and paste it as the cursor value
+GET {{baseUrl}}/feed?cursor=2025-01-01T00:00:00.000Z&limit=10 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [F4] ✅ Get Feed — User with No Connections (empty feed)
+# Log in as a brand-new user with no connections
+GET {{baseUrl}}/feed HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [F5] ❌ Get Feed — Limit Exceeds Max 50 (400 Validation Error)
+GET {{baseUrl}}/feed?limit=100 HTTP/1.1
+Authorization: Bearer {{token}}
+
+###
+
+### [F6] ❌ Get Feed — Invalid Cursor Format (400 Validation Error)
+GET {{baseUrl}}/feed?cursor=not-a-date HTTP/1.1
+Authorization: Bearer {{token}}
+
+###

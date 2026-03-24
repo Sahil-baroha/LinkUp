@@ -55,4 +55,25 @@ export class PostRepository {
     async delete(postId) {
         return await Post.findByIdAndDelete(postId);
     }
+
+    /**
+     * Feed Step 2: Fetch paginated posts from a set of authors.
+     * Cursor-based: fetches documents with createdAt < cursor, newest first.
+     * Fetches limit + 1 — caller uses the extra document to determine hasMore
+     * without an additional countDocuments call.
+     *
+     * @param {ObjectId[]} userIds   - Array of author IDs to include
+     * @param {Date}       cursor    - Only return posts older than this date
+     * @param {number}     limit     - Max posts to return (actual slice is limit + 1)
+     */
+    async getFeedPosts(userIds, cursor, limit) {
+        return await Post.find({
+            authorId: { $in: userIds },
+            createdAt: { $lt: cursor },
+        })
+            .populate("authorId", AUTHOR_PROJECTION)
+            .sort({ createdAt: -1 })
+            .limit(limit + 1)
+            .lean();
+    }
 }

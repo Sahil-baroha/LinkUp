@@ -70,4 +70,18 @@ export class CommentRepository {
     async deleteCommentsByPost(postId) {
         return await Comment.deleteMany({ postId });
     }
+
+    /**
+     * Feed Step 4b: Batch aggregate comment counts for a list of post IDs.
+     * Single aggregation replaces N individual countDocuments calls.
+     *
+     * @param {ObjectId[]} postIds
+     * @returns {Array<{ _id: ObjectId, count: number }>}
+     */
+    async getCommentCountsBatch(postIds) {
+        return await Comment.aggregate([
+            { $match: { postId: { $in: postIds } } },
+            { $group: { _id: "$postId", count: { $sum: 1 } } },
+        ]);
+    }
 }
