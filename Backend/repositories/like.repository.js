@@ -56,4 +56,36 @@ export class LikeRepository {
 
         return { likeCount, users: users.map(l => l.userId), page, limit };
     }
+
+    /**
+     * Feed Step 4a: Batch aggregate like counts AND "liked by me" flags for
+     * a list of post IDs — single aggregation replaces N+N individual queries.
+     *
+     * CRITICAL: req.user.id is a string. Like.userId is an ObjectId in MongoDB.
+     * The $eq comparator requires matching types — convert explicitly with
+     * new mongoose.Types.ObjectId(userId) or likedByMe silently returns 0.
+     *
+     * @param {ObjectId[]} postIds   - Post IDs to batch-aggregate
+     * @param {string}     userId    - Current user's ID (string from JWT)
+     * @returns {Array<{ _id: ObjectId, count: number, likedByMe: number }>}
+     */
+    async getLikeAndMeDataBatch(postIds, userId) {
+        const { Types } = await import("mongoose");
+        const currentUserObjectId = new Types.ObjectId(userId);
+
+        return await Like.aggregate([
+            { $match: { postId: { $in: postIds } } },
+            {
+                $group: {
+                    _id: "$postId",
+                    count: { $sum: 1 },
+                    likedByMe: {
+                        $sum: {
+                            $cond: [{ $eq: ["$userId", currentUserObjectId] }, 1, 0],
+                        },
+                    },
+                },
+            },
+        ]);
+    }
 }
