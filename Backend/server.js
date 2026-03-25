@@ -6,6 +6,8 @@ import express from "express";
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -21,8 +23,26 @@ const PORT = process.env.PORT || 3000;
 
 const app = express();
 
+// ── Security middleware ───────────────────────────────────────────────────────
+// M2: Sets X-Content-Type-Options, X-Frame-Options, Content-Security-Policy, etc.
+app.use(helmet());
+
+// M3: Restrict CORS to the configured frontend origin
+app.use(cors({
+    origin: process.env.CLIENT_URL,
+    credentials: true,
+}));
+
+// M1: Rate limiter for auth routes (applied per-route in auth.routes.js)
+export const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,   // 15 minutes
+    max: 20,                     // max 20 requests per window per IP
+    message: "Too many requests, please try again later",
+    standardHeaders: true,
+    legacyHeaders: false,
+});
+
 // Core middleware
-app.use(cors());
 app.use(express.json());
 app.use(cookieParser());
 
