@@ -15,6 +15,9 @@ export const createPostSchema = z.object({
 });
 
 // PATCH /posts/:postId — edit validation
+// M7: superRefine requires at least one of body (text) or an image upload.
+//     Zod cannot validate file presence (multer handles that), so we guard the
+//     text body here. The service's !hasChange guard is a secondary safety net.
 export const updatePostSchema = z.object({
     params: z.object({
         postId: objectIdSchema,
@@ -26,6 +29,17 @@ export const updatePostSchema = z.object({
             .max(3000, "Post body cannot exceed 3000 characters")
             .refine((val) => val.trim().length > 0, "Post body cannot be whitespace only")
             .optional(),
+    }).superRefine((data, ctx) => {
+        // Note: Zod cannot see req.file (multer). We only fail here if body is
+        // explicitly absent AND a text change was the only possible intent.
+        // The service layer will still catch the "no change + no file" case.
+        if (data.body === undefined) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["body"],
+                message: "At least one field (body or image) must be provided",
+            });
+        }
     }),
 });
 
