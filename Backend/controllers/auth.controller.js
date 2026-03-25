@@ -29,7 +29,9 @@ export const login = asyncHandler(async (req, res) => {
     const { email, password } = req.body;
     const { user, token } = await authService.login(email, password);
     res.cookie("token", token, COOKIE_OPTIONS);
-    return ApiResponse.success(res, { user, token }, "Logged in successfully");
+    // C4: Token is delivered via HttpOnly cookie only — not included in the body.
+    // Returning the token in JSON would allow XSS to read it from the response.
+    return ApiResponse.success(res, { user }, "Logged in successfully");
 });
 
 /**
