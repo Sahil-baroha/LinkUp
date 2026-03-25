@@ -1,14 +1,11 @@
-import { ConnectionRepository } from "../repositories/connection.repository.js";
-import { UserRepository } from "../repositories/user.repository.js";
+import { connectionRepo } from "../repositories/connection.repository.js";
+import { userRepo } from "../repositories/user.repository.js";
 import {
     BadRequestError,
     NotFoundError,
     ForbiddenError,
     ConflictError,
 } from "../utils/errors.js";
-
-const connectionRepo = new ConnectionRepository();
-const userRepo = new UserRepository();
 
 export class ConnectionService {
 
