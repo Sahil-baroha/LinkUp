@@ -1,9 +1,6 @@
-import { CommentRepository } from "../repositories/comment.repository.js";
-import { PostRepository } from "../repositories/post.repository.js";
+import { commentRepo } from "../repositories/comment.repository.js";
+import { postRepo } from "../repositories/post.repository.js";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.js";
-
-const commentRepo = new CommentRepository();
-const postRepo = new PostRepository();
 
 export class CommentService {
 
