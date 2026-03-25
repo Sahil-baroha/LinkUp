@@ -10,8 +10,7 @@ export class ApiResponse {
     static error(res, message = "Internal Server Error", statusCode = 500, errors = undefined) {
         const payload = {
             success: false,
-            message,
-            error: message
+            message,        // human-readable description
         };
         if (errors) {
             payload.errors = errors;
