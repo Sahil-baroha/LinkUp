@@ -1,8 +1,8 @@
-import { PostRepository } from "../repositories/post.repository.js";
+import { postRepo } from "../repositories/post.repository.js";
+import { commentRepo } from "../repositories/comment.repository.js";
+import { likeRepo } from "../repositories/like.repository.js";
 import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 import { NotFoundError, ForbiddenError, BadRequestError } from "../utils/errors.js";
-
-const postRepo = new PostRepository();
 
 export class PostService {
 
@@ -108,6 +108,8 @@ export class PostService {
      *
      * Rules enforced:
      * - Only author can delete
+     * - C2: Cascade-delete all comments and likes BEFORE deleting the post document
+     *   to keep the DB clean (no orphaned documents).
      * - If post has a Cloudinary image: attempt deletion first
      * - If Cloudinary deletion fails: log the error, still delete the post document
      *   (dangling asset is preferable to a broken user experience)
@@ -128,6 +130,11 @@ export class PostService {
                 );
             }
         }
+
+        // C2: Cascade-delete dependent data before removing the post document.
+        // Orphaned comments/likes cause permanent storage bloat.
+        await commentRepo.deleteCommentsByPost(postId);
+        await likeRepo.deleteLikesByPost(postId);
 
         await postRepo.delete(postId);
         return { message: "Post deleted successfully" };

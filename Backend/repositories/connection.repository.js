@@ -110,3 +110,6 @@ export class ConnectionRepository {
         );
     }
 }
+
+// m6: Singleton export — prevents multiple instantiations across services
+export const connectionRepo = new ConnectionRepository();

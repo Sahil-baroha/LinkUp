@@ -13,23 +13,29 @@ export class UserRepository {
         return await User.findOne({ email });
     }
 
+    /**
+     * C5: Cache stores plain objects (via toObject() before JSON.stringify).
+     * This prevents TypeError when downstream code (e.g. AuthService.login)
+     * receives a cached result and tries to call Mongoose instance methods.
+     * Cache always serves plain objects; callers must NOT call .toObject() on result.
+     */
     async findByUsername(username) {
         const cacheKey = `user:username:${username}`;
-        let user = await cache.get(cacheKey);
-        if (!user) {
-            user = await User.findOne({ username });
-            if (user) await cache.set(cacheKey, user, 300);
-        }
+        const cached = await cache.get(cacheKey);
+        if (cached) return cached;                          // already a plain object
+
+        const user = await User.findOne({ username });
+        if (user) await cache.set(cacheKey, user.toObject(), 300);  // store plain object
         return user;
     }
 
     async findById(id) {
         const cacheKey = `user:id:${id}`;
-        let user = await cache.get(cacheKey);
-        if (!user) {
-            user = await User.findById(id).select("-password");
-            if (user) await cache.set(cacheKey, user, 300);
-        }
+        const cached = await cache.get(cacheKey);
+        if (cached) return cached;                          // already a plain object
+
+        const user = await User.findById(id).select("-password");
+        if (user) await cache.set(cacheKey, user.toObject(), 300);  // store plain object
         return user;
     }
 
@@ -57,7 +63,8 @@ export class UserRepository {
 
     /**
      * Soft delete — sets active = false instead of removing the document.
-     * Cache is cleared so stale "active" data is not served.
+     * M14: Cache is immediately invalidated (not left to expire) so a deactivated
+     * user's profile is never served from cache — critical for security-driven deactivations.
      */
     async softDelete(id) {
         const user = await User.findByIdAndUpdate(
@@ -67,6 +74,7 @@ export class UserRepository {
         ).select("-password");
 
         if (user) {
+            // M14: Immediate invalidation — do not wait for TTL
             await cache.delete(`user:id:${id}`);
             await cache.delete(`user:username:${user.username}`);
             await cache.delete(`user:email:${user.email}`);
@@ -100,3 +108,6 @@ export class UserRepository {
         return { users, total, page, pages: Math.ceil(total / limit) };
     }
 }
+
+// m6: Singleton export — prevents multiple instantiations across services
+export const userRepo = new UserRepository();

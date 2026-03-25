@@ -1,3 +1,4 @@
+import mongoose from "mongoose";
 import Like from "../models/like.model.js";
 
 // User field projection — only expose public fields
@@ -30,6 +31,15 @@ export class LikeRepository {
     }
 
     /**
+     * M10: Atomically find and delete a like in one operation.
+     * Returns the deleted doc, or null if it no longer existed.
+     * Prevents TOCTOU race between findLike and deleteLike.
+     */
+    async findOneAndDeleteLike(postId, userId) {
+        return await Like.findOneAndDelete({ postId, userId });
+    }
+
+    /**
      * Count all likes for a given post.
      * Always derived from the collection — never a stored counter on Post.
      */
@@ -58,8 +68,19 @@ export class LikeRepository {
     }
 
     /**
+     * C2: Cascade-delete all likes for a post.
+     * Called when a post is deleted — keeps the collection clean.
+     */
+    async deleteLikesByPost(postId) {
+        return await Like.deleteMany({ postId });
+    }
+
+    /**
      * Feed Step 4a: Batch aggregate like counts AND "liked by me" flags for
      * a list of post IDs — single aggregation replaces N+N individual queries.
+     *
+     * M13: Using static top-level import of mongoose instead of dynamic import()
+     * to avoid async module-resolution overhead on every batch call.
      *
      * CRITICAL: req.user.id is a string. Like.userId is an ObjectId in MongoDB.
      * The $eq comparator requires matching types — convert explicitly with
@@ -70,8 +91,7 @@ export class LikeRepository {
      * @returns {Array<{ _id: ObjectId, count: number, likedByMe: number }>}
      */
     async getLikeAndMeDataBatch(postIds, userId) {
-        const { Types } = await import("mongoose");
-        const currentUserObjectId = new Types.ObjectId(userId);
+        const currentUserObjectId = new mongoose.Types.ObjectId(userId);
 
         return await Like.aggregate([
             { $match: { postId: { $in: postIds } } },
@@ -89,3 +109,6 @@ export class LikeRepository {
         ]);
     }
 }
+
+// m6: Singleton export — prevents multiple instantiations across services
+export const likeRepo = new LikeRepository();

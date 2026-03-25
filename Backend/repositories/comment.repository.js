@@ -85,3 +85,6 @@ export class CommentRepository {
         ]);
     }
 }
+
+// m6: Singleton export — prevents multiple instantiations across services
+export const commentRepo = new CommentRepository();

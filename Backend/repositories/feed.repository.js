@@ -1,89 +1,53 @@
-import { ConnectionRepository } from "./connection.repository.js";
-import { PostRepository } from "./post.repository.js";
-import { LikeRepository } from "./like.repository.js";
-import { CommentRepository } from "./comment.repository.js";
-
-const connectionRepo = new ConnectionRepository();
-const postRepo       = new PostRepository();
-const likeRepo       = new LikeRepository();
-const commentRepo    = new CommentRepository();
+import { connectionRepo } from "./connection.repository.js";
+import { postRepo } from "./post.repository.js";
+import { likeRepo } from "./like.repository.js";
+import { commentRepo } from "./comment.repository.js";
 
 /**
- * Feed Repository — orchestration layer only.
+ * Feed Repository — raw data access only.
  *
- * Responsibilities:
- *   Step 1: Resolve connected user IDs
- *   Step 2: Fetch paginated posts from those users
- *   Step 3: Batch-fetch like data + comment counts in 2 parallel queries
- *   Step 4: Build lookup Maps and merge enrichment onto posts
+ * C3: Business logic (short-circuit, hasMore, nextCursor, enrichment mapping)
+ * has been moved to FeedService. This class is a thin orchestration hub
+ * that delegates each step to the appropriate feature repository and returns
+ * raw, unenriched data.
  *
- * Never queries the DB directly — delegates to the four feature repositories.
  * Total DB operations: 4 (constant regardless of feed size).
  */
 export class FeedRepository {
 
     /**
-     * Orchestrate all feed DB operations.
-     *
-     * @param {string}  userId  - Current user's ID (string from JWT)
-     * @param {Date}    cursor  - Cursor date; only posts older than this are returned
-     * @param {number}  limit   - Number of posts the caller wants (we fetch limit + 1)
-     * @returns {{ posts: Array, hasMore: boolean, nextCursor: string|null }}
+     * Step 1: Resolve the set of user IDs connected to the requesting user.
+     * @returns {ObjectId[]} Raw array of connected user ObjectIds.
      */
-    async getFeed(userId, cursor, limit) {
+    async getAcceptedConnectionIds(userId) {
+        return await connectionRepo.getAcceptedConnectionIds(userId);
+    }
 
-        // ── Step 1: Who is this user connected to? ───────────────────────────
-        const connectedUserIds = await connectionRepo.getAcceptedConnectionIds(userId);
+    /**
+     * Step 2: Fetch raw paginated posts from a set of authors.
+     * Fetches limit + 1 so the service can determine hasMore without a count query.
+     * @returns {Object[]} Raw lean post documents (populated author fields).
+     */
+    async getFeedPosts(userIds, cursor, limit) {
+        return await postRepo.getFeedPosts(userIds, cursor, limit);
+    }
 
-        // Short-circuit: no connections → empty feed (avoids Steps 2–4 entirely)
-        if (connectedUserIds.length === 0) {
-            return { posts: [], hasMore: false, nextCursor: null };
-        }
+    /**
+     * Step 3a: Batch-fetch like counts and likedByMe flags for a list of posts.
+     * @returns {Array<{ _id: ObjectId, count: number, likedByMe: number }>}
+     */
+    async getLikeAndMeDataBatch(postIds, userId) {
+        return await likeRepo.getLikeAndMeDataBatch(postIds, userId);
+    }
 
-        // ── Step 2: Fetch limit + 1 posts from connected users ───────────────
-        const rawPosts = await postRepo.getFeedPosts(connectedUserIds, cursor, limit);
-
-        // Determine hasMore from the extra document, then slice to limit
-        const hasMore   = rawPosts.length > limit;
-        const posts     = rawPosts.slice(0, limit);
-        const nextCursor = hasMore
-            ? posts[posts.length - 1].createdAt.toISOString()
-            : null;
-
-        // Nothing to enrich if no posts returned
-        if (posts.length === 0) {
-            return { posts: [], hasMore: false, nextCursor: null };
-        }
-
-        // ── Step 3: Extract ObjectIds for batch queries ───────────────────────
-        const postIds = posts.map((p) => p._id);
-
-        // ── Step 4: Batch-fetch like + comment data in parallel ───────────────
-        const [likeData, commentData] = await Promise.all([
-            likeRepo.getLikeAndMeDataBatch(postIds, userId),
-            commentRepo.getCommentCountsBatch(postIds),
-        ]);
-
-        // ── Step 5: Build O(1) lookup Maps ────────────────────────────────────
-        const likeDataMap = new Map(
-            likeData.map((l) => [l._id.toString(), { count: l.count, likedByMe: l.likedByMe }])
-        );
-        const commentCountMap = new Map(
-            commentData.map((c) => [c._id.toString(), c.count])
-        );
-
-        // ── Step 6: Merge enrichment onto each post ───────────────────────────
-        const enrichedPosts = posts.map((post) => {
-            const pid       = post._id.toString();
-            const likeEntry = likeDataMap.get(pid);
-            return {
-                ...post,
-                likeCount:    likeEntry?.count    ?? 0,
-                isLikedByMe:  (likeEntry?.likedByMe ?? 0) > 0,
-                commentCount: commentCountMap.get(pid) ?? 0,
-            };
-        });
-
-        return { posts: enrichedPosts, hasMore, nextCursor };
+    /**
+     * Step 3b: Batch-fetch comment counts for a list of posts.
+     * @returns {Array<{ _id: ObjectId, count: number }>}
+     */
+    async getCommentCountsBatch(postIds) {
+        return await commentRepo.getCommentCountsBatch(postIds);
     }
 }
+
+// m6: Singleton export
+export const feedRepo = new FeedRepository();

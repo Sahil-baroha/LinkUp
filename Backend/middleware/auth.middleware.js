@@ -13,6 +13,11 @@ export const authenticate = async (req, res, next) => {
         req.user = payload;
         next();
     } catch (error) {
-        next(new UnauthorizedError("Invalid or expired token"));
+        // M4/M5: Distinguish expired token from tampered/malformed token so
+        // the frontend can decide whether to prompt re-login or flag a security issue.
+        if (error.name === "TokenExpiredError") {
+            return next(new UnauthorizedError("Token expired, please log in again"));
+        }
+        return next(new UnauthorizedError("Invalid token"));
     }
 };

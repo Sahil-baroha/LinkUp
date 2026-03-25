@@ -50,7 +50,7 @@ export class PostRepository {
 
     /**
      * Hard-delete a post document.
-     * Cloudinary cleanup is handled by the service before this is called.
+     * Cascade deletion (comments, likes) is handled by the service before this is called.
      */
     async delete(postId) {
         return await Post.findByIdAndDelete(postId);
@@ -77,3 +77,6 @@ export class PostRepository {
             .lean();
     }
 }
+
+// m6: Singleton export — prevents multiple instantiations across services
+export const postRepo = new PostRepository();

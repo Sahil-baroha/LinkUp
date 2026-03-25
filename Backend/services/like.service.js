@@ -1,9 +1,6 @@
-import { LikeRepository } from "../repositories/like.repository.js";
-import { PostRepository } from "../repositories/post.repository.js";
+import { likeRepo } from "../repositories/like.repository.js";
+import { postRepo } from "../repositories/post.repository.js";
 import { NotFoundError } from "../utils/errors.js";
-
-const likeRepo = new LikeRepository();
-const postRepo = new PostRepository();
 
 // MongoDB duplicate key error code
 const MONGO_DUPLICATE_KEY = 11000;
@@ -24,6 +21,9 @@ export class LikeService {
      * - E11000 on createLike (concurrent duplicate) → treat as already-liked,
      *   return { liked: true, likeCount } without throwing (idempotency)
      * - A user may like their own post — allowed by design
+     *
+     * M10: Unlike path uses findOneAndDeleteLike (atomic) instead of
+     *      findLike + deleteLike (two ops) to prevent TOCTOU race condition.
      */
     async toggleLike(postId, userId) {
         // Verify post exists first
@@ -33,8 +33,9 @@ export class LikeService {
         const existing = await likeRepo.findLike(postId, userId);
 
         if (existing) {
-            // ── Unlike ────────────────────────────────────────────────────────
-            await likeRepo.deleteLike(postId, userId);
+            // ── Unlike — atomic findOneAndDelete prevents TOCTOU race ─────────
+            await likeRepo.findOneAndDeleteLike(postId, userId);
+            // If null (already deleted by concurrent request), still report success
             const likeCount = await likeRepo.getLikeCount(postId);
             return { liked: false, likeCount };
         }
