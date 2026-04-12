@@ -1,6 +1,7 @@
 # 📡 LinkUp — API Reference
 
-> All endpoints are prefixed with `/api/v1/users`. All responses follow a standardized shape.
+> Base URL prefix: `/api/v1`  
+> All responses follow the standard shape: `{ success, message, data }`
 
 ---
 
@@ -8,271 +9,296 @@
 
 1. [Standard Response Format](#standard-response-format)
 2. [Authentication](#authentication)
-3. [Endpoints](#endpoints)
-   - [POST /register](#post-register)
-   - [POST /login](#post-login)
-   - [POST /update_profile_picture](#post-update_profile_picture)
-   - [POST /user_update](#post-user_update)
-4. [Error Responses](#error-responses)
-5. [Validation Rules](#validation-rules)
+3. [Auth Routes — `/auth`](#auth-routes)
+4. [User Routes — `/users`](#user-routes)
+5. [Connection Routes — `/connections`](#connection-routes)
+6. [Post Routes — `/posts`](#post-routes)
+7. [Feed Route — `/feed`](#feed-route)
+8. [Error Reference](#error-reference)
 
 ---
 
 ## Standard Response Format
 
-Every response from this API — success or failure — follows the same JSON shape:
+Every response — success or failure — uses the same shape:
 
 ```json
 {
-  "success": true | false,
-  "message": "Human-readable message",
+  "success": true,
+  "message": "Human-readable description",
   "data": { ... }
 }
 ```
 
-This is enforced by the `ApiResponse` utility (`utils/response.js`). Controllers never build their own JSON objects; they always go through this formatter.
-
-**Why standardize?** A consistent shape means frontend code can always find the data in the same place and can always check `success` before trying to read `data`.
-
----
-
-## Authentication
-
-Protected endpoints require a valid JWT token. The token can be sent in two ways:
-
-| Method | Format |
-|--------|--------|
-| **Cookie** (recommended) | `token=<jwt>` set automatically on login |
-| **Header** | `Authorization: Bearer <jwt>` |
-
-The `authenticate` middleware reads from the cookie first, then falls back to the `Authorization` header. If neither is present or the token is invalid, a `401 Unauthorized` error is returned.
-
-> **Token Expiry:** Tokens expire after **1 hour**. There is currently no refresh token mechanism — the user must log in again.
-
----
-
-## Endpoints
-
-### POST /register
-
-Creates a new user account.
-
-**Auth required:** No
-
-**Request Body:**
-
-| Field | Type | Required | Rules |
-|-------|------|----------|-------|
-| `name` | string | ✅ | At least 1 character |
-| `username` | string | ✅ | At least 3 characters, must be unique |
-| `email` | string | ✅ | Valid email format, must be unique |
-| `password` | string | ✅ | At least 6 characters |
-
-```json
-{
-  "name": "John Doe",
-  "username": "johndoe",
-  "email": "john@example.com",
-  "password": "securepass"
-}
-```
-
-**Success Response — `201 Created`:**
-
-```json
-{
-  "success": true,
-  "message": "User registered successfully",
-  "data": {
-    "_id": "6640e3a1c...",
-    "name": "John Doe",
-    "username": "johndoe",
-    "email": "john@example.com",
-    "active": true,
-    "profilePicture": "",
-    "createdAt": "2026-03-10T...",
-    "updatedAt": "2026-03-10T..."
-  }
-}
-```
-
-> **Note:** The `password` field is **never** returned in any response. It is stripped in the service layer before the object reaches the controller.
-
-**Possible Errors:**
-
-| Status | Reason |
-|--------|--------|
-| `400` | Validation failed (missing or invalid fields) |
-| `409` | Email or username already exists |
-
----
-
-### POST /login
-
-Authenticates an existing user and sets a session cookie.
-
-**Auth required:** No
-
-**Request Body:**
-
-| Field | Type | Required |
-|-------|------|----------|
-| `email` | string | ✅ |
-| `password` | string | ✅ |
-
-```json
-{
-  "email": "john@example.com",
-  "password": "securepass"
-}
-```
-
-**Success Response — `200 OK`:**
-
-```json
-{
-  "success": true,
-  "message": "User logged in successfully",
-  "data": {
-    "user": { "_id": "...", "name": "John Doe", ... },
-    "token": "eyJhbGciOiJIUzI1NiIsInR..."
-  }
-}
-```
-
-The server also sets a `Set-Cookie` header with the token:
-```
-Set-Cookie: token=<jwt>; HttpOnly; Secure; SameSite=Strict; Max-Age=3600
-```
-
-> **Security note:** `HttpOnly` prevents JavaScript from reading the cookie. `SameSite=Strict` prevents CSRF attacks.
-
-**Possible Errors:**
-
-| Status | Reason |
-|--------|--------|
-| `400` | Validation failed |
-| `404` | No user found with that email |
-| `401` | Email found but password does not match |
-
----
-
-### POST /update_profile_picture
-
-Uploads and sets the authenticated user's profile picture.
-
-**Auth required:** Yes (`authenticate` middleware)
-
-**Content-Type:** `multipart/form-data`
-
-**Form field:** `profileImage` (the image file)
-
-Files are stored in the `uploads/` folder on the server. The stored file path is saved to the user's `profilePicture` field.
-
-**Success Response — `200 OK`:**
-
-```json
-{
-  "success": true,
-  "message": "Profile picture uploaded successfully",
-  "data": {
-    "profilePicture": "uploads/1710077400000-avatar.png"
-  }
-}
-```
-
-**Possible Errors:**
-
-| Status | Reason |
-|--------|--------|
-| `400` | No file was included in the request |
-| `401` | Missing or invalid token |
-| `404` | Authenticated user not found in database |
-
----
-
-### POST /user_update
-
-Updates the authenticated user's profile fields.
-
-**Auth required:** Yes (`authenticate` middleware)
-
-**Request Body** (all fields are optional):
-
-| Field | Type | Rules |
-|-------|------|-------|
-| `name` | string | At least 1 character |
-| `username` | string | At least 3 characters |
-| `email` | string | Valid email format |
-
-```json
-{
-  "name": "Jane Doe",
-  "username": "janedoe"
-}
-```
-
-**Success Response — `200 OK`:**
-
-```json
-{
-  "success": true,
-  "message": "User updated successfully",
-  "data": {
-    "_id": "...",
-    "name": "Jane Doe",
-    "username": "janedoe",
-    "email": "john@example.com",
-    ...
-  }
-}
-```
-
-**Possible Errors:**
-
-| Status | Reason |
-|--------|--------|
-| `400` | Validation failed |
-| `401` | Missing or invalid token |
-| `404` | Authenticated user not found |
-| `409` | New email or username is already taken by another account |
-
----
-
-## Error Responses
-
-All errors follow the same standardized format:
-
+Error responses:
 ```json
 {
   "success": false,
-  "message": "Error description"
+  "message": "What went wrong"
 }
 ```
 
-Validation errors (status `400`) include a field-level `errors` array:
-
+Validation errors (400) also include field-level detail:
 ```json
 {
   "success": false,
   "message": "Validation failed",
   "errors": [
-    { "field": "email", "message": "Invalid email address" },
-    { "field": "password", "message": "Password must be at least 6 characters" }
+    { "field": "email", "message": "Invalid email address" }
   ]
 }
 ```
 
 ---
 
-## Validation Rules
+## Authentication
 
-Validation is enforced by **Zod** schemas before the request reaches the controller. If validation fails, the request is rejected at the middleware layer — the controller never executes.
+Protected routes require a valid JWT. Pass it in one of two ways:
 
-| Schema | Used by | Fields validated |
-|--------|---------|-----------------|
-| `registerSchema` | `POST /register` | `name`, `username`, `email`, `password` |
-| `loginSchema` | `POST /login` | `email`, `password` |
-| `updateProfileSchema` | `POST /user_update` | `name`, `username`, `email` (all optional) |
+| Method | Format |
+|--------|--------|
+| **Cookie** (recommended) | `token=<jwt>` — set automatically by `POST /auth/login` |
+| **Header** | `Authorization: Bearer <jwt>` |
 
-See → [`validators/user.validator.js`](../validators/user.validator.js)
+Token expiry: **1 hour**. No refresh token mechanism currently exists — the user must log in again.
+
+---
+
+## Auth Routes
+
+**Prefix:** `/api/v1/auth`  
+**Rate limited:** register and login — max 20 requests per IP per 15 minutes.
+
+### POST /auth/register
+
+Create a new account.
+
+**Body:**
+
+| Field | Type | Rules |
+|-------|------|-------|
+| `name` | string | Required, min 1 char |
+| `username` | string | Required, min 3 chars, unique |
+| `email` | string | Required, valid email, unique |
+| `password` | string | Required, min 6 chars |
+
+**Response — `201`:** User object (password excluded)
+
+**Errors:** `400` validation failed · `409` email or username already exists
+
+---
+
+### POST /auth/login
+
+Authenticate and receive a session cookie.
+
+**Body:** `{ email, password }`
+
+**Response — `200`:**
+```json
+{
+  "data": {
+    "user": { "_id": "...", "name": "...", ... },
+    "token": "eyJ..."
+  }
+}
+```
+Also sets: `Set-Cookie: token=<jwt>; HttpOnly; Secure; SameSite=Strict`
+
+**Errors:** `400` validation · `401` wrong credentials or deactivated account
+
+---
+
+### POST /auth/logout
+
+Clear the session cookie.
+
+**Auth required:** No  
+**Response — `200`:** Cookie is cleared server-side.
+
+---
+
+## User Routes
+
+**Prefix:** `/api/v1/users`  
+All routes require authentication.
+
+### GET /users/profile
+
+Get the authenticated user's profile.
+
+**Response — `200`:** User object
+
+---
+
+### PATCH /users/update
+
+Update profile fields (name, username, email).
+
+**Body:** All fields optional.
+
+| Field | Type | Rules |
+|-------|------|-------|
+| `name` | string | Optional, min 1 char |
+| `username` | string | Optional, min 3 chars |
+| `email` | string | Optional, valid email |
+
+**Errors:** `400` · `404` user not found · `409` username/email taken
+
+---
+
+### POST /users/update_profile_picture
+
+Upload a profile photo.
+
+**Content-Type:** `multipart/form-data`  
+**Form field:** `profileImage`
+
+**Response — `200`:** `{ profilePicture: "uploads/..." }`
+
+**Errors:** `400` no file uploaded · `404` user not found
+
+---
+
+### DELETE /users/deactivate
+
+Soft-delete the authenticated user's account. Sets `active = false`. The account cannot be reactivated via the API.
+
+**Response — `200`:** Deactivated user object (without password)
+
+---
+
+### GET /users/search?q=&page=&limit=
+
+Search users by name or username (case-insensitive, paginated).
+
+**Query params:** `q` (required), `page` (default 1), `limit` (default 10)
+
+**Response — `200`:**
+```json
+{
+  "data": {
+    "users": [...],
+    "total": 42,
+    "page": 1,
+    "pages": 5
+  }
+}
+```
+
+---
+
+## Connection Routes
+
+**Prefix:** `/api/v1/connections`  
+All routes require authentication.
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/` | Get accepted connections |
+| `GET` | `/requests` | Incoming pending requests |
+| `GET` | `/sent` | Outgoing pending requests |
+| `POST` | `/request/:userId` | Send a connection request |
+| `PATCH` | `/accept/:requestId` | Accept an incoming request |
+| `PATCH` | `/reject/:requestId` | Reject an incoming request |
+| `DELETE` | `/withdraw/:requestId` | Cancel an outgoing request |
+| `DELETE` | `/remove/:userId` | Remove an accepted connection |
+
+**Business rules:**
+- Cannot send a request to yourself
+- Cannot send a duplicate request
+- Only the receiver can accept or reject
+- Only the sender can withdraw
+
+---
+
+## Post Routes
+
+**Prefix:** `/api/v1/posts`  
+All routes require authentication.
+
+### Core CRUD
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/` | Create a post (text + optional image) |
+| `GET` | `/:postId` | Get a single post |
+| `GET` | `/user/:userId` | Get all posts by a user |
+| `PATCH` | `/:postId` | Edit a post (author only) |
+| `DELETE` | `/:postId` | Delete a post (author only, cascades to likes + comments) |
+
+**Post body fields:**
+
+| Field | Type | Rules |
+|-------|------|-------|
+| `body` | string | Required, max 3000 chars |
+| `image` | file | Optional, `multipart/form-data`, field name `postImage` |
+
+### Like Routes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/:postId/like` | Toggle like / unlike |
+| `GET` | `/:postId/likes` | Paginated list of users who liked + total count |
+
+### Comment Routes
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/:postId/comments` | Paginated comment list |
+| `POST` | `/:postId/comments` | Add a comment |
+| `PATCH` | `/:postId/comments/:commentId` | Edit a comment (author only) |
+| `DELETE` | `/:postId/comments/:commentId` | Delete a comment (author only) |
+
+---
+
+## Feed Route
+
+**Prefix:** `/api/v1/feed`  
+Requires authentication. Returns posts from accepted connections only.
+
+### GET /feed
+
+**Query params:**
+
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| `cursor` | ISO date string | now | Fetch posts older than this timestamp |
+| `limit` | number | 10 | Posts per page |
+
+**Response — `200`:**
+```json
+{
+  "data": {
+    "posts": [
+      {
+        "_id": "...",
+        "body": "...",
+        "authorId": { "username": "...", "profilePicture": "..." },
+        "likeCount": 5,
+        "isLikedByMe": true,
+        "commentCount": 2,
+        "createdAt": "..."
+      }
+    ],
+    "hasMore": true,
+    "nextCursor": "2026-04-10T12:00:00.000Z"
+  }
+}
+```
+
+**How pagination works:** Pass `nextCursor` from the previous response as `cursor` in the next request. When `hasMore` is `false`, you have reached the end of the feed.
+
+---
+
+## Error Reference
+
+| Status | Class | Meaning |
+|--------|-------|---------|
+| `400` | `ValidationError` | Invalid input |
+| `401` | `UnauthorizedError` | Missing/expired token or wrong credentials |
+| `403` | `ForbiddenError` | Authenticated but not allowed (e.g. editing another user's post) |
+| `404` | `NotFoundError` | Resource doesn't exist |
+| `409` | `ConflictError` | Duplicate (email, username, connection request) |
+| `429` | — | Rate limit exceeded (auth routes) |
+| `500` | — | Unexpected server error |

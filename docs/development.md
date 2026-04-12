@@ -1,6 +1,6 @@
 # 🛠️ LinkUp — Development Guide
 
-> A practical reference for developers contributing to the LinkUp backend. Covers the project conventions, request flow, and contribution patterns to follow.
+> Conventions, patterns, and workflow for contributing to the LinkUp backend.
 
 ---
 
@@ -8,24 +8,19 @@
 
 1. [Getting Started](#getting-started)
 2. [Environment Variables](#environment-variables)
-3. [Project Conventions](#project-conventions)
-4. [Request Lifecycle at a Glance](#request-lifecycle-at-a-glance)
-5. [Adding a New Endpoint](#adding-a-new-endpoint)
+3. [Project Structure](#project-structure)
+4. [Layer Rules](#layer-rules)
+5. [Adding a New Module](#adding-a-new-module)
 6. [Validation Conventions](#validation-conventions)
-7. [Error Handling Conventions](#error-handling-conventions)
+7. [Error Handling](#error-handling)
 8. [API Response Conventions](#api-response-conventions)
-9. [Code Style Notes](#code-style-notes)
+9. [Naming Conventions](#naming-conventions)
 
 ---
 
 ## Getting Started
 
-**Prerequisites:**
-- Node.js ≥ 18
-- MongoDB (Atlas cloud or local)
-- Redis (optional — app works without it)
-
-**Install and run:**
+**Prerequisites:** Node.js ≥ 18, MongoDB, Redis (optional)
 
 ```bash
 cd Backend
@@ -33,169 +28,173 @@ npm install
 npm run dev
 ```
 
-The server starts on port `3000` by default (configurable via `PORT` in `.env`).
+Server starts on port `3000` by default.
 
 ---
 
 ## Environment Variables
 
-Create a `.env` file in the `Backend/` directory:
-
 ```
-MONGO_URL=mongodb+srv://<user>:<password>@cluster.mongodb.net/linkup
-JWT_SECRET=<your-secret-key-min-32-chars>
+MONGO_URL=mongodb+srv://<user>:<pass>@cluster.mongodb.net/linkup
+JWT_SECRET=<long-random-string>
 PORT=3000
-REDIS_URL=redis://localhost:6379   # optional
+CLIENT_URL=http://localhost:3001     # CORS origin — required in production
+REDIS_URL=redis://localhost:6379     # optional — app works without it
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
 ```
 
-| Variable | Required | Description |
-|----------|----------|-------------|
+| Variable | Required | Notes |
+|----------|----------|-------|
 | `MONGO_URL` | ✅ | MongoDB connection string |
-| `JWT_SECRET` | ✅ | Secret for signing and verifying JWTs. Use a long, random string in production. |
-| `PORT` | ❌ | Server port (defaults to `3000`) |
-| `REDIS_URL` | ❌ | Redis connection string. If omitted, caching is silently disabled. |
+| `JWT_SECRET` | ✅ | Use a long, random string. Rotate if compromised. |
+| `CLIENT_URL` | ✅ (production) | Restricts CORS to your frontend origin |
+| `REDIS_URL` | ❌ | Omit entirely to run without cache |
+| `CLOUDINARY_*` | ✅ (for posts with images) | Cloudinary credentials |
 
 ---
 
-## Project Conventions
-
-### Layered Architecture
-
-Every feature follows the same three-layer structure:
+## Project Structure
 
 ```
-routes/         → defines URL + middleware chain
-controllers/    → handles HTTP, delegates to service
-services/       → business rules, throws typed errors
-repositories/   → database (and cache) access only
-models/         → Mongoose schema definition
-validators/     → Zod input schemas
-middleware/     → auth, validation, error handling
-utils/          → shared helpers (errors, response, cache)
-```
-
-**The rule:** Each layer only communicates with the layer directly below it.
-- Controllers call Services
-- Services call Repositories
-- Repositories call Mongoose models and the CacheService
-
-Never skip layers — no controller should import a Mongoose model directly.
-
-### Naming Conventions
-
-| Type | Convention | Example |
-|------|-----------|---------|
-| Files | kebab-case | `user.service.js` |
-| Classes | PascalCase | `UserService` |
-| Functions | camelCase | `updateProfile` |
-| Error classes | PascalCase | `NotFoundError` |
-| Cache keys | `entity:field:value` | `user:id:abc123` |
-
----
-
-## Request Lifecycle at a Glance
-
-When a request comes in, it passes through these stages in order:
-
-```
-1. Global middleware (cors, express.json, cookieParser)  — server.js
-2. Route-specific middleware (validate, authenticate)     — routes/
-3. Controller function                                    — controllers/
-4. Service method                                        — services/
-5. Repository method → MongoDB / Redis                   — repositories/
-6. Response flows back up
-7. (on error) Global error handler catches and responds  — middleware/
+Backend/
+├── config/             → Cloudinary setup and other integrations
+├── controllers/        → HTTP layer — reads req, calls service, sends response
+├── services/           → Business logic layer
+├── repositories/       → Database + cache layer
+├── models/             → Mongoose schemas
+├── routes/             → URL definitions and middleware chains
+├── middleware/         → auth, validation, upload, error handler
+├── validators/         → Zod input schemas
+├── utils/              → Shared: errors.js, response.js, cache.js, cloudinary.js
+└── server.js           → App entry point, global middleware, route mounting
 ```
 
 ---
 
-## Adding a New Endpoint
+## Layer Rules
 
-Follow this checklist whenever you add a new endpoint:
+The backend follows a strict layered architecture. Each layer has one job and communicates only with the layer directly below it.
 
-### 1. Define the Zod schema (validators/)
+```
+Route → Middleware → Controller → Service → Repository → MongoDB / Redis
+```
+
+| Layer | Job | Must NOT |
+|-------|-----|---------|
+| Controller | Read `req`, call service, send response | Touch DB, contain business logic |
+| Service | Enforce rules, throw typed errors | Import Mongoose, send HTTP responses |
+| Repository | Run DB/cache queries | Contain business logic, know about `req`/`res` |
+
+**Never skip layers.** A controller must not import a model directly. A service must not call `res.json()`.
+
+---
+
+## Adding a New Module
+
+Follow these steps in order. Use the existing modules as reference.
+
+### 1. Model (`models/`)
+
+Define the Mongoose schema. Add indexes for any field you'll query on.
+
+### 2. Repository (`repositories/`)
+
+Only Mongoose calls here. Export a singleton:
 
 ```javascript
-// validators/user.validator.js
-export const myNewSchema = z.object({
+export class ThingRepository { ... }
+export const thingRepo = new ThingRepository();
+```
+
+### 3. Service (`services/`)
+
+Business logic only. Use the typed error classes. Strip sensitive fields before returning.
+
+```javascript
+import { thingRepo } from "../repositories/thing.repository.js";
+import { NotFoundError, ForbiddenError } from "../utils/errors.js";
+
+export class ThingService {
+    async doSomething(userId, data) {
+        const thing = await thingRepo.findById(data.id);
+        if (!thing) throw new NotFoundError("Thing not found");
+        if (thing.ownerId.toString() !== userId) throw new ForbiddenError("Not your thing");
+        return thingRepo.update(data.id, data.updates);
+    }
+}
+```
+
+### 4. Controller (`controllers/`)
+
+One line per operation — delegate everything to the service.
+
+```javascript
+import { asyncHandler } from "../middleware/error-handler.middleware.js";
+import { ApiResponse } from "../utils/response.js";
+
+export const doSomething = asyncHandler(async (req, res) => {
+    const result = await thingService.doSomething(req.user.id, req.body);
+    return ApiResponse.success(res, result, "Done");
+});
+```
+
+### 5. Validator (`validators/`)
+
+All fields wrapped in `body:` for the validation middleware.
+
+```javascript
+export const createThingSchema = z.object({
     body: z.object({
-        fieldName: z.string().min(1, "Field is required"),
+        name: z.string().min(1),
     }),
 });
 ```
 
-### 2. Add the repository method (repositories/)
+### 6. Routes (`routes/`)
 
-Only write Mongoose queries here. Return the raw Mongoose document.
+Wire the middleware chain. Validation before authentication for public schemas; authentication before any protected handler.
 
 ```javascript
-// repositories/user.repository.js
-async findByField(value) {
-    return await User.findOne({ field: value });
-}
+router.use(authenticate);
+router.post("/", validate(createThingSchema), createThing);
 ```
 
-### 3. Add the service method (services/)
-
-Write the business logic: validation rules, transformations, authorization checks, error throwing.
+### 7. Mount in `server.js`
 
 ```javascript
-// services/user.service.js
-async myOperation(data) {
-    const result = await this.userRepository.findByField(data.field);
-    if (!result) throw new NotFoundError("Resource not found");
-    const { password, ...safe } = result.toObject();
-    return safe;
-}
-```
-
-### 4. Add the controller method (controllers/)
-
-Keep it thin. Delegate to the service, then send the response.
-
-```javascript
-// controllers/user.controller.js
-export const myEndpoint = asyncHandler(async (req, res) => {
-    const result = await userService.myOperation(req.body);
-    return ApiResponse.success(res, result, "Operation successful");
-});
-```
-
-### 5. Add the route (routes/)
-
-Wire up the middleware chain and the controller function.
-
-```javascript
-// routes/user.routes.js
-router.route('/my-endpoint').post(validate(myNewSchema), authenticate, myEndpoint);
+import thingRoutes from "./routes/thing.routes.js";
+app.use("/api/v1/things", thingRoutes);
 ```
 
 ---
 
 ## Validation Conventions
 
-- All validation schemas live in `validators/user.validator.js`
-- Schemas always wrap fields in a `body` object: `z.object({ body: z.object({...}) })`
-- The `validate(schema)` middleware must come **before** `authenticate()` in the middleware chain — reject bad input before spending time on JWT verification
-- If a field is optional in an update endpoint, add `.optional()` to the Zod field
+- All schemas live in `validators/`.
+- Fields are always wrapped in `body: z.object({...})`.
+- For URL params, wrap in `params: z.object({...})` — use `.refine()` to validate ObjectId format.
+- `validate(schema)` must come **before** business middleware (authenticate) on public routes to reject bad input cheaply.
+- Optional fields in update endpoints get `.optional()`.
 
 ---
 
-## Error Handling Conventions
+## Error Handling
 
-Use the custom error classes from `utils/errors.js` in the service layer:
+Use the typed error classes from `utils/errors.js`:
 
-| Error Class | HTTP Status | When to use |
-|------------|-------------|-------------|
-| `ValidationError` | 400 | Input fails a rule that Zod doesn't cover (business-level validation) |
-| `NotFoundError` | 404 | A database lookup returns `null` |
-| `UnauthorizedError` | 401 | Invalid credentials or missing token |
-| `ForbiddenError` | 403 | Authenticated, but not allowed to access this resource |
-| `ConflictError` | 409 | Duplicate data (email, username, etc.) |
+| Class | HTTP Status | When to use |
+|-------|-------------|-------------|
+| `ValidationError` | 400 | Business-level rule failure (not caught by Zod) |
+| `UnauthorizedError` | 401 | Missing/invalid token, wrong credentials |
+| `ForbiddenError` | 403 | Authenticated but not the owner of a resource |
+| `NotFoundError` | 404 | DB lookup returned null |
+| `ConflictError` | 409 | Duplicate (email, username, connection request, like) |
 
-**Never throw a generic `new Error()` for known scenarios.** A generic error will be caught by the error handler and returned as a `500`, hiding the real problem.
+**Never throw `new Error()` for a known case.** The global handler treats a plain `Error` as a 500 and hides the real reason.
 
-**Never use `try/catch` inside controllers.** The `asyncHandler` wrapper does this for you. Any thrown error anywhere in the async chain is automatically caught and forwarded to the global error handler.
+**Never write `try/catch` in a controller.** `asyncHandler` wraps every controller function. Any thrown error is automatically forwarded to the global error handler.
 
 ---
 
@@ -205,20 +204,25 @@ Always use `ApiResponse` from `utils/response.js`:
 
 ```javascript
 // Success
-return ApiResponse.success(res, data, "Message", statusCode); // statusCode defaults to 200
+ApiResponse.success(res, data, "Message");          // 200
+ApiResponse.success(res, data, "Created", 201);     // 201
 
-// Error (use only if you need to manually send an error from the controller)
-return ApiResponse.error(res, "Error message", statusCode);
+// Error (when manually responding from a controller — rare)
+ApiResponse.error(res, "Something failed", 400);
 ```
 
-Never call `res.json()` or `res.status().send()` directly in a controller. This ensures consistent response shapes across the entire API.
+Never call `res.json()` or `res.status(200).send()` directly in a controller.
 
 ---
 
-## Code Style Notes
+## Naming Conventions
 
-- Use **ES Modules** (`import`/`export`), not CommonJS (`require`/`module.exports`)
-- Use **`async/await`** over `.then().catch()` chains
-- The `asyncHandler` wrapper eliminates the need for `try/catch` in controllers
-- Always strip the `password` field from user objects before returning them from a service method
-- Services should be classes, repositories should be classes (for consistency and testability)
+| Type | Convention | Example |
+|------|-----------|---------|
+| Files | `feature.layer.js` | `post.service.js` |
+| Classes | PascalCase | `PostService` |
+| Functions / methods | camelCase | `createPost` |
+| Singleton exports | camelCase | `postRepo` |
+| Error classes | PascalCase | `ForbiddenError` |
+| Cache keys | `entity:field:value` | `user:id:abc123` |
+| Routes | kebab-case | `/update_profile_picture` |

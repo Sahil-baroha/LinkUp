@@ -1,142 +1,163 @@
 # 🗄️ LinkUp — Database Reference
 
-> The database layer uses **MongoDB** via Mongoose ODM. All database interaction is isolated inside the `repositories/` directory — no other layer touches MongoDB directly.
+> All database access goes through `repositories/`. No other layer imports Mongoose models directly.
 
 ---
 
 ## Table of Contents
 
-1. [Technology Stack](#technology-stack)
-2. [Connection Setup](#connection-setup)
+1. [Stack](#stack)
+2. [Models Overview](#models-overview)
 3. [User Model](#user-model)
-4. [Indexes](#indexes)
-5. [Redis Cache Layer](#redis-cache-layer)
-6. [Repository Abstraction](#repository-abstraction)
+4. [Post Model](#post-model)
+5. [Connection Model](#connection-model)
+6. [Like Model](#like-model)
+7. [Comment Model](#comment-model)
+8. [Indexes Summary](#indexes-summary)
+9. [Repository Abstraction](#repository-abstraction)
 
 ---
 
-## Technology Stack
+## Stack
 
 | Component | Technology |
 |-----------|-----------|
-| Database | MongoDB (Atlas or local) |
-| ODM | Mongoose v8 |
-| Cache | Redis (optional, graceful fallback) |
-| Cache Client | `ioredis` (via `CacheService` wrapper) |
+| Database | MongoDB |
+| ODM | Mongoose |
+| Cache | Redis via `ioredis` (optional) |
+| Image storage | Cloudinary (for post images) |
+| File uploads | Multer (profile pictures stored locally in `uploads/`) |
 
 ---
 
-## Connection Setup
+## Models Overview
 
-The database connection is established in `server.js` during application startup.
-
-```javascript
-await mongoose.connect(process.env.MONGO_URL, {
-    family: 4  // Force IPv4 — fixes DNS resolution issues on newer Node versions
-});
+```
+User ──< Post
+User ──< Connection (as senderId or receiverId)
+Post ──< Like
+Post ──< Comment
+User ──< Like
+User ──< Comment
 ```
 
-> **Why `family: 4`?** Mongoose (and Node's DNS resolver) sometimes attempts an IPv6 lookup first. On certain network configurations this times out. Forcing IPv4 ensures a reliable connection.
-
-The connection string is read from the `MONGO_URL` environment variable. Never hardcode connection strings in source code.
+All relationships use MongoDB `ObjectId` references (`ref`). Mongoose `populate()` is used to join data at query time — there are no embedded documents between collections.
 
 ---
 
 ## User Model
 
-**File:** `models/user.model.js`  
-**Collection:** `users` (auto-pluralized by Mongoose)
+**File:** `models/user.model.js` · **Collection:** `users`
 
-### Schema Definition
+| Field | Type | Required | Unique | Default |
+|-------|------|----------|--------|---------|
+| `name` | String | ✅ | — | — |
+| `username` | String | ✅ | ✅ | — |
+| `email` | String | ✅ | ✅ | — |
+| `password` | String | ✅ | — | — |
+| `active` | Boolean | — | — | `true` |
+| `profilePicture` | String | — | — | `""` |
+| `createdAt` / `updatedAt` | Date | — | — | auto |
 
-| Field | Type | Required | Unique | Default | Description |
-|-------|------|----------|--------|---------|-------------|
-| `name` | String | ✅ | ❌ | — | User's display name |
-| `username` | String | ✅ | ✅ | — | Unique handle used for lookups and mentions |
-| `email` | String | ✅ | ✅ | — | Login credential, must be a valid email |
-| `password` | String | ✅ | ❌ | — | Bcrypt hash — **never** the plaintext password |
-| `active` | Boolean | ❌ | ❌ | `true` | Account status flag (reserved for soft-delete) |
-| `profilePicture` | String | ❌ | ❌ | `""` | File path of the uploaded profile image |
-| `createdAt` | Date | — | — | auto | Set by `timestamps: true` |
-| `updatedAt` | Date | — | — | auto | Set by `timestamps: true` |
-
-### Key Design Decisions
-
-**Passwords are hashed, not stored.** The `password` field holds a `bcrypt` hash (10 salt rounds). The service layer is responsible for hashing before calling the repository. The model itself has no pre-save hook for hashing — this keeps the model simple and makes the hashing step explicit in the service.
-
-**`active` flag is a placeholder.** It defaults to `true` but is not yet used by any endpoint. It is reserved for future soft-delete functionality — instead of removing a user document, setting `active: false` would deactivate the account while preserving data.
-
-**`timestamps: true`** automatically adds `createdAt` and `updatedAt` to every document, managed by Mongoose.
+**Key decisions:**
+- `password` stores a bcrypt hash (10 rounds). Never plaintext.
+- `active: false` is a soft-delete — the document stays in the database. Deactivated accounts cannot log in.
+- `profilePicture` stores a local file path (`uploads/…`). Post images use Cloudinary instead.
 
 ---
 
-## Indexes
+## Post Model
 
-```javascript
-userSchema.index({ email: 1 });
-userSchema.index({ username: 1 });
-```
+**File:** `models/posts.model.js` · **Collection:** `posts`
 
-Both `email` and `username` are individually indexed in ascending order (`1`). This makes the following queries fast:
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `authorId` | ObjectId (ref User) | ✅ | The creator of the post |
+| `body` | String | ✅ | Max 3000 chars |
+| `image.url` | String | — | Cloudinary URL, `null` if text-only |
+| `image.publicId` | String | — | Cloudinary ID used to delete the image on post delete |
+| `createdAt` / `updatedAt` | Date | — | auto |
 
-- `User.findOne({ email })` — used during login
-- `User.findOne({ username })` — used during profile lookup
-- `User.findOne({ $or: [{ email }, { username }] })` — used during duplicate checks
-
-> **Why not a compound index on `{ email, username }`?** A compound index would only accelerate queries that filter on *both* fields simultaneously. Since the application mostly queries one field at a time, separate single-field indexes are more efficient here.
-
-Mongoose also creates a unique constraint index for fields marked `unique: true`. This means duplicate `email` or `username` values are rejected at the **database level** as well as the service level.
+**Indexes:**
+- `{ authorId: 1, createdAt: -1 }` — fast "all posts by user, newest first" queries
+- `{ createdAt: -1 }` — fast cursor-based feed queries across all posts
 
 ---
 
-## Redis Cache Layer
+## Connection Model
 
-**File:** `utils/cache.js`
+**File:** `models/connections.model.js` · **Collection:** `connections`
 
-Redis is used as an optional, transparent cache layer on top of MongoDB.
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `senderId` | ObjectId (ref User) | ✅ | Who sent the request |
+| `receiverId` | ObjectId (ref User) | ✅ | Who received it |
+| `status` | String (enum) | — | `"pending"` / `"accepted"` / `"rejected"`. Default: `"pending"` |
+| `createdAt` / `updatedAt` | Date | — | auto |
 
-### Cache Keys
+**Indexes:**
+- `{ senderId: 1, receiverId: 1 }` unique — prevents duplicate requests between the same pair at the DB level
+- `{ senderId: 1, receiverId: 1, status: 1 }` — supports the feed query that resolves all accepted connections for a user
 
-| Key Pattern | TTL | Used by |
-|-------------|-----|---------|
-| `user:id:{id}` | 300 seconds (5 min) | `findById()` |
-| `user:username:{username}` | 300 seconds (5 min) | `findByUsername()` |
-| `user:email:{email}` | — | Invalidation only |
+---
 
-### Graceful Fallback
+## Like Model
 
-If Redis is not configured (no `REDIS_URL` environment variable), `CacheService` returns `null` on all `get()` calls and silently ignores `set()` calls. The application continues to work using MongoDB for every query. Redis is a performance enhancement, not a hard dependency.
+**File:** `models/like.model.js` · **Collection:** `likes`
 
-### Cache Invalidation
+| Field | Type | Required |
+|-------|------|----------|
+| `postId` | ObjectId (ref Post) | ✅ |
+| `userId` | ObjectId (ref User) | ✅ |
+| `createdAt` / `updatedAt` | Date | auto |
 
-When `update()` is called in the repository, **all three cache keys** for that user are deleted:
+**Index:** `{ postId: 1, userId: 1 }` unique — one like per user per post, enforced at DB level.
 
-```javascript
-await cache.delete(`user:id:${id}`);
-await cache.delete(`user:username:${user.username}`);
-await cache.delete(`user:email:${user.email}`);
-```
+**Design note:** Like count is never stored on the `Post` document. It is always derived from `Like.countDocuments({ postId })` or via aggregation. This avoids counter drift from concurrent writes.
 
-This ensures that after a profile update, the next request always reads fresh data from MongoDB.
+---
+
+## Comment Model
+
+**File:** `models/comments.model.js` · **Collection:** `comments`
+
+| Field | Type | Required | Notes |
+|-------|------|----------|-------|
+| `postId` | ObjectId (ref Post) | ✅ | Indexed |
+| `authorId` | ObjectId (ref User) | ✅ | — |
+| `body` | String | ✅ | Max 1000 chars |
+| `createdAt` / `updatedAt` | Date | — | auto |
+
+**Index:** `{ postId: 1, createdAt: -1 }` — fast "all comments for a post, newest first" queries.
+
+---
+
+## Indexes Summary
+
+| Collection | Index | Purpose |
+|------------|-------|---------|
+| `users` | `{ email: 1 }` | Login lookup |
+| `users` | `{ username: 1 }` | Profile lookup / search |
+| `posts` | `{ authorId: 1, createdAt: -1 }` | Posts by author, sorted |
+| `posts` | `{ createdAt: -1 }` | Cursor-based feed |
+| `connections` | `{ senderId, receiverId }` unique | Prevent duplicate requests |
+| `connections` | `{ senderId, receiverId, status }` | Feed connection resolve |
+| `likes` | `{ postId, userId }` unique | One like per user per post |
+| `comments` | `{ postId, createdAt: -1 }` | Paginated comments per post |
 
 ---
 
 ## Repository Abstraction
 
-**File:** `repositories/user.repository.js`
+Each collection has its own repository class. No other layer calls Mongoose directly.
 
-The repository is the **only** place in the codebase where Mongoose model methods are called. This means:
+| Repository | Caching |
+|------------|---------|
+| `UserRepository` | `findById`, `findByUsername` — 300s TTL. Invalidated on `update` and `softDelete`. |
+| `PostRepository` | None |
+| `ConnectionRepository` | None |
+| `LikeRepository` | None — includes batch aggregation for feed enrichment |
+| `CommentRepository` | None — includes batch count aggregation for feed enrichment |
+| `FeedRepository` | Coordinates the other 4 repositories in 4 constant DB queries |
 
-- If you ever need to swap MongoDB for another database, you only need to rewrite this single file.
-- The service and controller layers never need to import Mongoose types or understand query syntax.
-
-### Available Methods
-
-| Method | Description | Cache? |
-|--------|-------------|--------|
-| `create(userData)` | Creates and saves a new User document | No |
-| `findByEmail(email)` | Finds a user by email | No |
-| `findByUsername(username)` | Finds a user by username | ✅ Yes |
-| `findById(id)` | Finds a user by MongoDB `_id` | ✅ Yes |
-| `checkExists(email, username)` | Returns a user if either email or username matches (used for duplicate detection) | No |
-| `update(id, updates)` | Updates a user document and invalidates cache | Invalidates |
+→ See [redis-cache.md](./redis-cache.md) for a full explanation of how the cache layer works.

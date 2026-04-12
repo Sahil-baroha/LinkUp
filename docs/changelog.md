@@ -1,84 +1,159 @@
 # 📋 LinkUp — Changelog
 
-> Documents all major and minor changes to the project, organized by phase or release.
+> Phase-by-phase history of everything built. Most recent first.
 
 ---
 
-## Phase 1 — Initial Backend Structure _(Pre-v1.1.0)_
+## Phase 6 — Security & Audit (`chore/audit-fixes`) — PR #6
 
-**Setup:** Express server with basic MongoDB connection, single user controller with mixed concerns.
+**Merged into:** `main`  
+**Focus:** Hardening the entire backend before it is considered production-ready.
 
-- Monolithic controller handling auth, validation, and database queries in one function
-- Basic JWT logic embedded directly in each controller method
-- Manual `if/else` validation without schema enforcement
-- No caching layer, no standardized API response format
-- No centralized error handling — each route had isolated `try/catch` blocks
+### Security
 
----
+- Added **Helmet** (`helmet()`) — sets security HTTP headers out of the box: `X-Content-Type-Options`, `X-Frame-Options`, `Content-Security-Policy`, and others.
+- **CORS** locked to `process.env.CLIENT_URL` — previously `cors()` was called with no options, allowing any origin.
+- **Rate limiting** on auth routes (`POST /auth/register` and `POST /auth/login`) — max 20 requests per IP per 15 minutes using `express-rate-limit`. Prevents brute-force attacks.
+- JWT generation moved to an ES2022 **private class method** (`#generateToken`) — not accessible outside the class.
+- Login now checks `user.active` — deactivated accounts are rejected with `401`.
 
-## Phase 2 — User Module Refactor _(v1.1.0 — March 2026)_
+### Cache Fixes
 
-**Summary:** Complete restructuring of the User module into a production-grade layered architecture.
-
-### Architecture
-
-- Introduced **Controller → Service → Repository** separation of concerns
-- Controller reduced from ~181 lines to 30 lines (83% reduction)
-- Business logic is now fully decoupled from HTTP and database layers
-
-### Authentication
-
-- Replaced inline JWT logic with a dedicated `auth.middleware.js`
-- Stateless JWT stored in `HttpOnly`, `Secure`, `SameSite=Strict` cookies
-- Token expiry: 1 hour
+- **Object serialization fixed** — repositories now call `.toObject()` before caching. Previously a raw Mongoose document was serialized, leading to `TypeError` when cache-hit results were used as Mongoose documents downstream.
+- **`KEYS` replaced with `SCAN`** — `redis.keys()` is a blocking O(N) command. Replaced with `redis.scanStream()` which is non-blocking and safe for production.
 
 ### Validation
 
-- Added `validators/user.validator.js` with three Zod schemas: `registerSchema`, `loginSchema`, `updateProfileSchema`
-- Added `middleware/validation.middleware.js` to enforce schemas before the controller is reached
-- Validation errors now return field-level details in the response
+- Added missing `param` validation across routes — previously some URL params (like `:postId`, `:userId`) were not validated before reaching the controller.
+- Update endpoints now enforce **non-empty body** — sending an empty `{}` would previously result in a no-op database call.
 
-### Error Handling
+### Post Module
 
-- Added `utils/errors.js` with a typed error hierarchy:
-  - `AppError` (base)
-  - `ValidationError` (400)
-  - `NotFoundError` (404)
-  - `UnauthorizedError` (401)
-  - `ForbiddenError` (403)
-  - `ConflictError` (409)
-- Added `middleware/error-handler.middleware.js` as a global error catcher
-- All controllers now use `asyncHandler` wrapper — no individual `try/catch` required
+- Legacy post controller removed; repository updated to use `.lean()` consistently for better performance.
+- Cascade delete fully wired — deleting a post now correctly removes all associated likes and comments.
 
-### API Responses
+### Standardization
 
-- Added `utils/response.js` (`ApiResponse`) to enforce a consistent `{ success, message, data }` shape on all responses
-
-### Caching
-
-- Added `utils/cache.js` (`CacheService`) — Redis wrapper with graceful fallback if no Redis URL is configured
-- Implemented **Cache-Aside pattern** in the repository for `findById` and `findByUsername`
-- Cache TTL: 300 seconds per key
-- Cache invalidation on `update()` across all three cache keys
-
-### Database
-
-- Added compound indexes on `email` and `username` for faster login and profile lookups
-
-### New Files Added
-
-| File | Purpose |
-|------|---------|
-| `services/user.service.js` | Business logic (hashing, token generation, authorization) |
-| `repositories/user.repository.js` | MongoDB abstraction + Redis cache-aside |
-| `middleware/auth.middleware.js` | Stateless JWT validation |
-| `middleware/validation.middleware.js` | Zod schema enforcement |
-| `middleware/error-handler.middleware.js` | Global error catching + asyncHandler |
-| `validators/user.validator.js` | Input schemas for register, login, profile update |
-| `utils/errors.js` | Custom typed error classes |
-| `utils/response.js` | Standardized API response formatter |
-| `utils/cache.js` | Redis caching service |
+- API responses standardized across all remaining controllers — all now go through `ApiResponse`.
+- Comment and like service logic cleaned up and made consistent.
 
 ---
 
-_Future phases will be documented here as they are implemented._
+## Phase 5 — Feed Module (`feature/feed`) — PR #5
+
+**Merged into:** `main`
+
+Introduced the personalized connection feed — the core social feature.
+
+### What was built
+
+- `FeedService.getFeed()` — orchestrates feed generation in **4 constant DB queries**, regardless of how many posts exist.
+- Algorithm:
+  1. Resolve accepted connection IDs for the current user
+  2. Fetch `limit + 1` posts (cursor-based pagination, no `COUNT` queries)
+  3. Batch-fetch like counts + "liked by me" flags via a single aggregation
+  4. Batch-fetch comment counts
+  5. Merge enrichment data onto post objects using O(1) `Map` lookups
+
+- `FeedRepository` — thin coordination hub, delegates each step to the correct feature repository.
+- Cursor-based pagination — instead of `?page=2`, the client sends a `cursor` (ISO timestamp of the last seen post). This avoids the "page drift" problem where new posts shift results between page loads.
+
+### Connection model updated
+
+- Added a compound index `{ senderId, receiverId, status }` to support the feed query that finds all accepted connections for a user efficiently.
+
+---
+
+## Phase 4 — Comment System (`feature/comment-system`) — PR #4
+
+**Merged into:** `main`
+
+Full comment CRUD plugged into the existing post routes.
+
+### What was built
+
+- `Comment` model — `postId` (ref Post), `authorId` (ref User), `body` (max 1000 chars), timestamps. Indexed on `{ postId, createdAt: -1 }`.
+- `CommentRepository` — `create`, `findByPost` (paginated), `findById`, `update`, `delete`, `deleteCommentsByPost` (cascade), `getCommentCountsBatch` (aggregation for feed).
+- `CommentService` — ownership check before edit/delete. Only the comment's author can modify it.
+- `CommentController` — 4 handlers: `getComments`, `addComment`, `editComment`, `deleteComment`.
+- Routes nested under `/posts/:postId/comments`.
+- Cascade delete wired: deleting a post calls `deleteCommentsByPost` before removing the post document.
+
+---
+
+## Phase 3 — Like System (`feature/like-system`) — PR #3
+
+**Merged into:** `main`
+
+Toggle-based like system with batch aggregation for the feed.
+
+### What was built
+
+- `Like` model — `{ postId, userId }` with a **compound unique index** `{ postId, userId }` — the database enforces one-like-per-user-per-post at the storage level.
+- `LikeRepository` — includes `findOneAndDeleteLike` (atomic unlike to prevent TOCTOU race), `getLikeCount`, `getLikesByPost` (paginated with user population), `getLikeAndMeDataBatch` (single aggregation returning like count + "liked by me" flag for a batch of posts).
+- `LikeService` — toggle logic: if a like document exists → unlike, otherwise → like.
+- Routes: `POST /:postId/like` (toggle), `GET /:postId/likes` (list).
+
+---
+
+## Phase 2 — Post Module (`feature/post-model`) — PR #2
+
+**Merged into:** `main`
+
+Core content creation.
+
+### What was built
+
+- `Post` model — `authorId` (ref User), `body` (max 3000 chars), `image { url, publicId }`. Indexed on `{ authorId, createdAt: -1 }` and `{ createdAt: -1 }`.
+- **Cloudinary integration** (`utils/cloudinary.js`) — images uploaded via Multer are stored in Cloudinary. The `publicId` is stored so images can be deleted when the post is removed.
+- `PostRepository` — `create`, `findById`, `findByAuthor`, `update`, `delete`, `getFeedPosts` (cursor-based, `limit + 1` trick).
+- `PostService` — authorization: only the post author can edit or delete. Handles Cloudinary upload and deletion.
+- Full CRUD routes under `/api/v1/posts`.
+
+---
+
+## Phase 1 — Connection System (`feature/connection-system`) — PR #1
+
+**Merged into:** `main`
+
+The social graph that powers the feed and defines who is "connected".
+
+### What was built
+
+- `Connection` model — `{ senderId, receiverId, status }` where status is `"pending" | "accepted" | "rejected"`. Unique compound index `{ senderId, receiverId }` prevents duplicate requests.
+- `ConnectionRepository` — `sendRequest`, `findRequest`, `acceptRequest`, `rejectRequest`, `withdrawRequest`, `removeConnection`, `getMyConnections`, `getIncomingRequests`, `getOutgoingRequests`, `getAcceptedConnectionIds`.
+- `ConnectionService` — business rules such as: you cannot send a request to yourself, you cannot accept a request you sent, you cannot send a duplicate request.
+- 8 routes covering the full connection lifecycle.
+
+---
+
+## Phase 0 — User Module Refactor (v1.1.0 — March 2026)
+
+**Foundation:** Restructured the entire backend from a monolithic controller into a production-grade layered architecture.
+
+### What changed
+
+| Area | Before | After |
+|------|--------|-------|
+| Architecture | Single fat controller | Controller → Service → Repository |
+| Auth | JWT logic inline | Stateless JWT middleware |
+| Validation | Manual `if/else` | Zod schemas + middleware |
+| Error handling | Per-function `try/catch` | Global handler + typed errors |
+| API responses | Inconsistent JSON | Standardized `ApiResponse` |
+| Caching | None | Redis cache-aside pattern |
+| Database | No indexes | Indexes on `email`, `username` |
+
+### New files introduced
+
+| File | Purpose |
+|------|---------|
+| `services/auth.service.js` | Register, login, logout business logic |
+| `services/user.service.js` | Profile management, search |
+| `repositories/user.repository.js` | DB abstraction + Redis cache |
+| `middleware/auth.middleware.js` | JWT verification |
+| `middleware/validation.middleware.js` | Zod schema enforcement |
+| `middleware/error-handler.middleware.js` | Global error catcher + `asyncHandler` |
+| `validators/user.validator.js` | Input schemas |
+| `utils/errors.js` | Typed error classes |
+| `utils/response.js` | `ApiResponse` formatter |
+| `utils/cache.js` | `CacheService` Redis wrapper |

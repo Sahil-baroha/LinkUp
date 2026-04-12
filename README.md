@@ -1,19 +1,15 @@
 # LinkUp
 
-> A LinkedIn clone for professionals — built with the MERN stack using a production-grade layered backend architecture.
+> A LinkedIn clone for professionals — MERN stack, production-grade layered backend.
 
 ---
 
 ## Project Overview
 
-LinkUp is a full-stack social networking platform inspired by LinkedIn. It allows users to:
+LinkUp is a full-stack social networking platform. Users can register, post content, react to posts, comment, connect with other users, and view a personalized feed from their connections.
 
-- Register and authenticate with secure JWT-based sessions
-- Upload and manage profile pictures
-- Update their professional profile
-- _(Coming soon)_ create and share posts, and build a professional connections network
-
-The project is built incrementally using the MERN stack (MongoDB, Express, React/Next.js, Node.js).
+**Backend status:** Complete ✅  
+**Frontend:** Next.js — in progress
 
 ---
 
@@ -21,14 +17,15 @@ The project is built incrementally using the MERN stack (MongoDB, Express, React
 
 | Layer | Technology |
 |-------|-----------|
-| **Runtime** | Node.js (ESM) |
-| **Framework** | Express.js |
-| **Database** | MongoDB via Mongoose |
-| **Cache** | Redis (optional, graceful fallback) |
-| **Auth** | Stateless JWT stored in HttpOnly cookies |
-| **Validation** | Zod |
-| **File Uploads** | Multer (disk storage) |
-| **Frontend** | Next.js _(in progress)_ |
+| Runtime | Node.js (ESM) |
+| Framework | Express.js |
+| Database | MongoDB via Mongoose |
+| Cache | Redis via ioredis (optional) |
+| Auth | Stateless JWT in HttpOnly cookies |
+| Validation | Zod |
+| Image storage | Cloudinary (posts) + Multer/disk (profile pictures) |
+| Security | Helmet, CORS origin lock, express-rate-limit |
+| Frontend | Next.js _(in progress)_ |
 
 ---
 
@@ -36,107 +33,79 @@ The project is built incrementally using the MERN stack (MongoDB, Express, React
 
 ```
 Backend/
-├── controllers/        → HTTP request handlers (thin, delegate to services)
-├── services/           → Business logic (hashing, tokens, rules)
-├── repositories/       → Database abstraction + Redis cache layer
+├── controllers/        → HTTP layer
+├── services/           → Business logic
+├── repositories/       → Database + cache
 ├── models/             → Mongoose schemas
-├── routes/             → URL definitions and middleware chains
-├── middleware/         → Auth, validation, error handling
-├── validators/         → Zod input schemas
-├── utils/              → Shared helpers (errors, response, cache)
-└── server.js           → App entry point
+├── routes/             → URL definitions + middleware chains
+├── middleware/         → auth, validation, upload, error handler
+├── validators/         → Zod schemas
+├── utils/              → errors, response, cache, cloudinary
+└── server.js           → Entry point
 ```
 
 ---
 
-## Architecture Overview
-
-The backend follows a **Separation of Concerns** pattern with three distinct layers:
+## Architecture
 
 ```
-HTTP Request
-    │
-    ▼
-Middleware  →  Controller  →  Service  →  Repository  →  MongoDB / Redis
+Request → Middleware → Controller → Service → Repository → MongoDB / Redis
 ```
-
-Each layer has a single responsibility:
 
 | Layer | Responsibility |
 |-------|---------------|
-| **Controller** | Reads from `req`, calls the service, sends the response |
-| **Service** | Enforces business rules, throws typed errors |
-| **Repository** | Runs database queries per MongoDB/Redis |
+| **Controller** | Reads `req`, calls service, sends response |
+| **Service** | Business rules, throws typed errors |
+| **Repository** | MongoDB queries + Redis cache |
 
-→ **Deep dive:** [`docs/architecture.md`](Backend/docs/architecture.md)
+Full explanation → [`docs/architecture.md`](docs/architecture.md)
+
+---
+
+## Implemented Modules
+
+| Module | Routes prefix | Status |
+|--------|--------------|--------|
+| Auth (register / login / logout) | `/api/v1/auth` | ✅ |
+| User (profile, search, deactivate) | `/api/v1/users` | ✅ |
+| Connections (request / accept / reject / remove) | `/api/v1/connections` | ✅ |
+| Posts (CRUD + image upload) | `/api/v1/posts` | ✅ |
+| Likes (toggle, list) | `/api/v1/posts/:id/likes` | ✅ |
+| Comments (CRUD) | `/api/v1/posts/:id/comments` | ✅ |
+| Feed (cursor-paginated, enriched) | `/api/v1/feed` | ✅ |
 
 ---
 
 ## Getting Started
 
 ```bash
-# Clone the repository
-git clone <repo-url>
-cd linkup/Backend
-
-# Install dependencies
+cd Backend
 npm install
-
-# Set up environment variables
-cp .env.example .env  # then fill in the values
-
-# Start the development server
 npm run dev
 ```
 
-### Environment Variables
-
-Create a `.env` file in the `Backend/` directory:
+**`.env` file:**
 
 ```
-MONGO_URL=<your-mongodb-uri>
-JWT_SECRET=<your-long-secret-key>
+MONGO_URL=mongodb+srv://...
+JWT_SECRET=<long-random-string>
 PORT=3000
-REDIS_URL=redis://localhost:6379   # optional
+CLIENT_URL=http://localhost:3001
+REDIS_URL=redis://localhost:6379     # optional
+CLOUDINARY_CLOUD_NAME=...
+CLOUDINARY_API_KEY=...
+CLOUDINARY_API_SECRET=...
 ```
 
-→ See [`docs/development.md`](docs/development.md) for full setup details.
-
 ---
 
-## Available Endpoints
+## Documentation
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| `POST` | `/api/v1/users/register` | ❌ | Create a new account |
-| `POST` | `/api/v1/users/login` | ❌ | Login and receive session token |
-| `POST` | `/api/v1/users/user_update` | ✅ | Update profile fields |
-| `POST` | `/api/v1/users/update_profile_picture` | ✅ | Upload a profile image |
-
-→ Full API reference: [`docs/api.md`](docs/api.md)
-
----
-
-## Documentation Guide
-
-| Document | What it covers |
-|----------|---------------|
-| [`docs/architecture.md`](docs/architecture.md) | Layered architecture, middleware pipeline, request lifecycle, error propagation, cache-aside pattern |
-| [`docs/api.md`](docs/api.md) | All API endpoints, request shapes, response formats, validation rules |
-| [`docs/database.md`](docs/database.md) | Mongoose models, indexes, Redis caching, repository methods |
-| [`docs/development.md`](docs/development.md) | Project conventions, how to add a new endpoint, error and response patterns |
-| [`docs/changelog.md`](docs/changelog.md) | Phase-by-phase history of major changes |
-
----
-
-## Development Workflow
-
-The project is built in phases. Each phase introduces a new feature module.
-
-- **Phase 1** — Initial Express + MongoDB setup
-- **Phase 2** — User module with full layered architecture ✅ _(current)_
-- **Phase 3** — Posts module _(planned)_
-- **Phase 4** — Connections / follows _(planned)_
-- **Phase 5** — Notifications and feed _(planned)_
-
-→ See [`docs/changelog.md`](docs/changelog.md) for full phase history.
+| File | What it covers |
+|------|---------------|
+| [`docs/architecture.md`](docs/architecture.md) | Layered architecture, middleware pipeline, request lifecycle, error propagation |
+| [`docs/api.md`](docs/api.md) | All endpoints, request/response shapes, pagination |
+| [`docs/database.md`](docs/database.md) | All models, indexes, repository methods |
+| [`docs/redis-cache.md`](docs/redis-cache.md) | How Redis caching works — patterns, invalidation, fallback |
+| [`docs/development.md`](docs/development.md) | How to add a new module, conventions, naming |
+| [`docs/changelog.md`](docs/changelog.md) | Phase-by-phase build history |
