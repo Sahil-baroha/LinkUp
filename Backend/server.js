@@ -7,7 +7,6 @@ import mongoose from "mongoose";
 import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
-import rateLimit from "express-rate-limit";
 
 import userRoutes from "./routes/user.routes.js";
 import authRoutes from "./routes/auth.routes.js";
@@ -33,14 +32,6 @@ app.use(cors({
     credentials: true,
 }));
 
-// M1: Rate limiter for auth routes (applied per-route in auth.routes.js)
-export const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000,   // 15 minutes
-    max: 20,                     // max 20 requests per window per IP
-    message: "Too many requests, please try again later",
-    standardHeaders: true,
-    legacyHeaders: false,
-});
 
 // Core middleware
 app.use(express.json());
