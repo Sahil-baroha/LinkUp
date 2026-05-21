@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { QueryProvider } from "@/providers/query-provider";
+import { StoreHydration } from "@/components/shared/store-hydration";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -28,10 +29,15 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <QueryProvider>
+          {/* StoreHydration: zero-render client component that calls
+              useAuthStore.persist.rehydrate() after mount, preventing the
+              SSR crash caused by persist middleware accessing localStorage */}
+          <StoreHydration />
           {children}
         </QueryProvider>
         {/*
