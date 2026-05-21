@@ -5,10 +5,16 @@ const nextConfig: NextConfig = {
     remotePatterns: [
       {
         // Cloudinary — post images and profile pictures
-        // Verified: both post.service.js and user profilePicture field
-        // use Cloudinary exclusively. No local Express static serving.
         protocol: "https",
         hostname: "res.cloudinary.com",
+        pathname: "/**",
+      },
+      {
+        // Local backend — profile pictures during development
+        // (backend serves uploads from express static or proxies to localhost)
+        protocol: "http",
+        hostname: "localhost",
+        port: "3000",
         pathname: "/**",
       },
     ],
