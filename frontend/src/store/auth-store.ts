@@ -79,8 +79,43 @@ export const useAuthStore = create<AuthStore>()(
     {
       // ── Persist config ─────────────────────────────────────────────────────
       name: "linkup-auth",
-      storage: createJSONStorage(() => localStorage),
+      /**
+       * SSR-safe storage factory.
+       *
+       * The factory function inside createJSONStorage is called SYNCHRONOUSLY
+       * when the store module is first evaluated (not when rehydrate() is called).
+       * On the server, `localStorage` is a browser global — it is `undefined`
+       * in Node.js, NOT a ReferenceError. This means the middleware receives
+       * `undefined` as its storage and then crashes trying to call
+       * `.addListener` (for cross-tab sync subscription setup) on `undefined`.
+       *
+       * Fix: return a fully typed no-op Storage during SSR. The no-op has all
+       * required methods so the middleware can set up subscriptions safely
+       * without hitting undefined. skipHydration: true then ensures rehydrate()
+       * is never called automatically, so the no-op is never actually read from.
+       */
+      storage: createJSONStorage((): Storage => {
+        if (typeof window === "undefined") {
+          return {
+            getItem: (_key: string) => null,
+            setItem: (_key: string, _value: string) => {},
+            removeItem: (_key: string) => {},
+            clear: () => {},
+            key: (_index: number) => null,
+            length: 0,
+          };
+        }
+        return window.localStorage;
+      }),
       version: 1,
+
+      /**
+       * skipHydration: true prevents the SSR crash where persist middleware
+       * tries to access window.localStorage during server rendering.
+       * Instead, StoreHydration calls useAuthStore.persist.rehydrate()
+       * manually on the client after mount. onRehydrateStorage still fires.
+       */
+      skipHydration: true,
 
       /**
        * Persist ONLY the user field.
