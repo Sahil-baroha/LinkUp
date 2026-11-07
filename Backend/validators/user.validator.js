@@ -6,7 +6,7 @@ export const updateUserSchema = z.object({
             .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores")
             .optional(),
         profilePicture: z.string().url("Profile picture must be a valid URL").optional(),
-    }).refine(data => Object.keys(data).length > 0, {
+    }).strict().refine(data => Object.keys(data).length > 0, {
         message: "At least one field must be provided for update"
     }),
 });
