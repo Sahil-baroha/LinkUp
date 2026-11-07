@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import { CacheService } from "../utils/cache.js";
+import { escapeRegex } from "../utils/regex.js";
 
 const cache = new CacheService();
 
@@ -24,7 +25,7 @@ export class UserRepository {
         const cached = await cache.get(cacheKey);
         if (cached) return cached;                          // already a plain object
 
-        const user = await User.findOne({ username });
+        const user = await User.findOne({ username }).select("-password");
         if (user) await cache.set(cacheKey, user.toObject(), 300);  // store plain object
         return user;
     }
@@ -87,7 +88,8 @@ export class UserRepository {
      * Filters out deactivated accounts. Uses pagination.
      */
     async search(query, page = 1, limit = 10) {
-        const regex = new RegExp(query, "i");
+        const safeQuery = escapeRegex(query);
+        const regex = new RegExp(safeQuery, "i");
         const skip = (page - 1) * limit;
 
         const [users, total] = await Promise.all([
@@ -95,7 +97,7 @@ export class UserRepository {
                 active: true,
                 $or: [{ username: regex }, { name: regex }]
             })
-                .select("-password")
+                .select("-password -email -active")
                 .skip(skip)
                 .limit(limit)
                 .lean(),

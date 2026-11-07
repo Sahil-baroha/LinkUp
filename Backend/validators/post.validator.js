@@ -50,6 +50,27 @@ export const postIdSchema = z.object({
     }),
 });
 
+// GET /posts/:postId/likes and GET /posts/:postId/comments — query validation
+export const postPaginationQuerySchema = z.object({
+    params: z.object({
+        postId: objectIdSchema,
+    }),
+    query: z.object({
+        page: z
+            .string()
+            .regex(/^\d+$/, "Page must be a numeric integer")
+            .transform(Number)
+            .pipe(z.number().int().min(1, "Page must be at least 1"))
+            .optional(),
+        limit: z
+            .string()
+            .regex(/^\d+$/, "Limit must be a numeric integer")
+            .transform(Number)
+            .pipe(z.number().int().min(1, "Limit must be at least 1").max(50, "Limit cannot exceed 50"))
+            .optional(),
+    }),
+});
+
 // GET /posts/user/:userId
 export const userIdParamSchema = z.object({
     params: z.object({

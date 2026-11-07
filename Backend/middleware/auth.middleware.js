@@ -9,7 +9,7 @@ export const authenticate = async (req, res, next) => {
             throw new UnauthorizedError("No token provided");
         }
 
-        const payload = jwt.verify(token, process.env.JWT_SECRET);
+        const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
         req.user = payload;
         next();
     } catch (error) {

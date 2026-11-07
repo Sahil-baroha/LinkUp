@@ -4,12 +4,20 @@ import { NotFoundError, ConflictError, ForbiddenError } from "../utils/errors.js
 export class UserService {
     /**
      * Fetch a single active user by ID, excluding password.
+     * When requested by another user (requesterId !== id), email and active are stripped.
      */
-    async getUserById(id) {
+    async getUserById(id, requesterId = null) {
         const user = await userRepo.findById(id);
         if (!user) throw new NotFoundError("User not found");
         if (!user.active) throw new NotFoundError("User not found");
-        return user;
+
+        const userObj = typeof user.toObject === "function" ? user.toObject() : { ...user };
+        if (requesterId && String(requesterId) !== String(id)) {
+            delete userObj.email;
+            delete userObj.active;
+        }
+
+        return userObj;
     }
 
     /**

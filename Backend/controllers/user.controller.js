@@ -9,7 +9,7 @@ const userService = new UserService();
  * Returns a public user profile (no password).
  */
 export const getUserById = asyncHandler(async (req, res) => {
-    const user = await userService.getUserById(req.params.id);
+    const user = await userService.getUserById(req.params.id, req.user?.id);
     return ApiResponse.success(res, user, "User fetched successfully");
 });
 
@@ -19,7 +19,10 @@ export const getUserById = asyncHandler(async (req, res) => {
  * Requires authentication. Users can only update their own profile.
  */
 export const updateUserProfile = asyncHandler(async (req, res) => {
-    const user = await userService.updateProfile(req.user.id, req.params.id, req.body);
+    const updates = {};
+    if (req.body.username !== undefined) updates.username = req.body.username;
+    if (req.body.profilePicture !== undefined) updates.profilePicture = req.body.profilePicture;
+    const user = await userService.updateProfile(req.user.id, req.params.id, updates);
     return ApiResponse.success(res, user, "Profile updated successfully");
 });
 

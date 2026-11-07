@@ -9,7 +9,8 @@ export class AuthService {
      * Hashes the password and removes it from the returned payload.
      */
     async register(userData) {
-        const existingUser = await userRepo.checkExists(userData.email, userData.username);
+        const normalizedEmail = userData.email.trim().toLowerCase();
+        const existingUser = await userRepo.checkExists(normalizedEmail, userData.username);
         if (existingUser) {
             throw new ConflictError("An account with this email or username already exists");
         }
@@ -17,6 +18,7 @@ export class AuthService {
         const hashedPassword = await bcrypt.hash(userData.password, 10);
         const user = await userRepo.create({
             ...userData,
+            email: normalizedEmail,
             password: hashedPassword,
         });
 
@@ -34,18 +36,19 @@ export class AuthService {
      */
     async login(email, password) {
         // findByEmail is never cached — returns full Mongoose document (including password)
-        const user = await userRepo.findByEmail(email);
+        const normalizedEmail = email.trim().toLowerCase();
+        const user = await userRepo.findByEmail(normalizedEmail);
         if (!user) {
             throw new UnauthorizedError("Invalid email or password");
-        }
-
-        if (!user.active) {
-            throw new UnauthorizedError("This account has been deactivated");
         }
 
         const isPasswordValid = await bcrypt.compare(password, user.password);
         if (!isPasswordValid) {
             throw new UnauthorizedError("Invalid email or password");
+        }
+
+        if (!user.active) {
+            throw new UnauthorizedError("This account has been deactivated");
         }
 
         const token = this.#generateToken({ id: user._id });
@@ -63,6 +66,6 @@ export class AuthService {
      * conventional _generateToken prefix which is not enforced by the runtime.
      */
     #generateToken(payload) {
-        return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+        return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h", algorithm: "HS256" });
     }
 }
