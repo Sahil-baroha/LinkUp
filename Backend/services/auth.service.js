@@ -66,6 +66,6 @@ export class AuthService {
      * conventional _generateToken prefix which is not enforced by the runtime.
      */
     #generateToken(payload) {
-        return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h" });
+        return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h", algorithm: "HS256" });
     }
 }
