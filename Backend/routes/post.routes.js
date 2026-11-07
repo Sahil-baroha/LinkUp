@@ -15,6 +15,7 @@ import {
     createPostSchema,
     updatePostSchema,
     postIdSchema,
+    postPaginationQuerySchema,
     userIdParamSchema,
     commentBodySchema,
     commentParamsSchema,
@@ -49,11 +50,11 @@ router.delete("/:postId", validate(postIdSchema), deletePost);
 router.post("/:postId/like", validate(postIdSchema), toggleLike);
 
 // GET   /posts/:postId/likes — paginated like list + count
-router.get("/:postId/likes", validate(postIdSchema), getLikes);
+router.get("/:postId/likes", validate(postPaginationQuerySchema), getLikes);
 
 // ── Comment routes ────────────────────────────────────────────────────────────
 // GET    /posts/:postId/comments  — paginated comment list
-router.get("/:postId/comments", validate(postIdSchema), getComments);
+router.get("/:postId/comments", validate(postPaginationQuerySchema), getComments);
 
 // POST   /posts/:postId/comments  — add a comment
 router.post("/:postId/comments", validate(commentBodySchema), addComment);
