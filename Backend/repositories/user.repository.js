@@ -95,7 +95,7 @@ export class UserRepository {
                 active: true,
                 $or: [{ username: regex }, { name: regex }]
             })
-                .select("-password")
+                .select("-password -email -active")
                 .skip(skip)
                 .limit(limit)
                 .lean(),

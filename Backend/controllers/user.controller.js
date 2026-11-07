@@ -9,7 +9,7 @@ const userService = new UserService();
  * Returns a public user profile (no password).
  */
 export const getUserById = asyncHandler(async (req, res) => {
-    const user = await userService.getUserById(req.params.id);
+    const user = await userService.getUserById(req.params.id, req.user?.id);
     return ApiResponse.success(res, user, "User fetched successfully");
 });
 
