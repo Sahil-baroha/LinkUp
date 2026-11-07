@@ -13,7 +13,7 @@ export const updateUserSchema = z.object({
 
 export const searchUserSchema = z.object({
     query: z.object({
-        q: z.string().min(1, "Search query is required"),
+        q: z.string().min(1, "Search query is required").max(50, "Search query cannot exceed 50 characters"),
         limit: z.coerce.number().int().min(1).max(50).default(10),
         page: z.coerce.number().int().min(1).default(1),
     }),

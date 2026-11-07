@@ -1,5 +1,6 @@
 import User from "../models/user.model.js";
 import { CacheService } from "../utils/cache.js";
+import { escapeRegex } from "../utils/regex.js";
 
 const cache = new CacheService();
 
@@ -87,7 +88,8 @@ export class UserRepository {
      * Filters out deactivated accounts. Uses pagination.
      */
     async search(query, page = 1, limit = 10) {
-        const regex = new RegExp(query, "i");
+        const safeQuery = escapeRegex(query);
+        const regex = new RegExp(safeQuery, "i");
         const skip = (page - 1) * limit;
 
         const [users, total] = await Promise.all([
