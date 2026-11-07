@@ -20,7 +20,7 @@ import connectionRoutes from "./routes/connection.routes.js";
 import postRoutes from "./routes/post.routes.js";
 import feedRoutes from "./routes/feed.routes.js";
 import { errorHandler } from "./middleware/error-handler.middleware.js";
-import { getCacheStatus } from "./utils/cache.js";
+import { getCacheStatus, disconnectRedis } from "./utils/cache.js";
 
 const app = express();
 
@@ -94,6 +94,58 @@ app.use("/api/v1/feed", feedRoutes);                // Protected — connection 
 // Global error handler — must be last middleware
 app.use(errorHandler);
 
+let server = null;
+let isShuttingDown = false;
+
+// Graceful shutdown handler
+const gracefulShutdown = async (signal) => {
+    if (isShuttingDown) return;
+    isShuttingDown = true;
+
+    console.log(`[Shutdown] Received ${signal}, starting graceful shutdown.`);
+
+    // Force exit after 10 seconds if shutdown hangs
+    const forceExitTimer = setTimeout(() => {
+        console.error("[Shutdown] Graceful shutdown timed out after 10s. Forcing exit.");
+        process.exit(1);
+    }, 10000);
+    forceExitTimer.unref?.();
+
+    try {
+        // Stage 1: Stop accepting new HTTP connections
+        if (server) {
+            console.log("[Shutdown] Stage 1: Closing HTTP server.");
+            await new Promise((resolve, reject) => {
+                server.close((err) => {
+                    if (err) return reject(err);
+                    resolve();
+                });
+            });
+            console.log("[Shutdown] Stage 1 complete: HTTP server closed.");
+        }
+
+        // Stage 2: Close Mongoose database connection
+        console.log("[Shutdown] Stage 2: Closing MongoDB connection.");
+        await mongoose.connection.close(false);
+        console.log("[Shutdown] Stage 2 complete: MongoDB connection closed.");
+
+        // Stage 3: Disconnect Redis cache if active
+        console.log("[Shutdown] Stage 3: Disconnecting Redis cache.");
+        await disconnectRedis();
+        console.log("[Shutdown] Stage 3 complete: Redis cache disconnected.");
+
+        // Stage 4: Exit process cleanly
+        console.log("[Shutdown] Stage 4: Graceful shutdown complete. Exiting.");
+        process.exit(0);
+    } catch (err) {
+        console.error("[Shutdown] Error during shutdown:", err.message);
+        process.exit(1);
+    }
+};
+
+process.once("SIGTERM", () => gracefulShutdown("SIGTERM"));
+process.once("SIGINT", () => gracefulShutdown("SIGINT"));
+
 // Database connection & Server Startup
 const start = async () => {
     try {
@@ -103,7 +155,7 @@ const start = async () => {
         });
         console.log("DB Connected Successfully!");
 
-        const server = app.listen(env.PORT, () => console.log(`Server started on port ${env.PORT}`));
+        server = app.listen(env.PORT, () => console.log(`Server started on port ${env.PORT}`));
         return server;
     } catch (err) {
         console.error("Critical Mongo Error:", err.message);

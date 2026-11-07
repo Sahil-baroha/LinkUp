@@ -95,3 +95,18 @@ export function getCacheStatus() {
     }
     return "down";
 }
+
+/**
+ * Gracefully disconnect Redis client if active.
+ */
+export async function disconnectRedis() {
+    if (redis) {
+        try {
+            await redis.quit();
+        } catch {
+            redis.disconnect();
+        } finally {
+            redis = null;
+        }
+    }
+}
