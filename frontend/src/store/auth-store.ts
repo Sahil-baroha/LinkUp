@@ -61,17 +61,36 @@ type AuthStore = AuthState & AuthActions;
 
 // ─── Store ────────────────────────────────────────────────────────────────────
 
+// ─── Helpers ─────────────────────────────────────────────────────────────────
+
+function setLoggedInCookie(isLoggedIn: boolean) {
+  if (typeof window === "undefined") return;
+  if (isLoggedIn) {
+    document.cookie = "linkup-logged-in=true; path=/; max-age=31536000; SameSite=Lax";
+  } else {
+    document.cookie = "linkup-logged-in=; path=/; max-age=0; SameSite=Lax";
+  }
+}
+
+// ─── Store ────────────────────────────────────────────────────────────────────
+
 export const useAuthStore = create<AuthStore>()(
   persist(
     (set) => ({
       // ── Initial state ──────────────────────────────────────────────────────
       user: null,
       _hasHydrated: false,
-
+ 
       // ── Actions ────────────────────────────────────────────────────────────
-      setUser: (user) => set({ user }),
+      setUser: (user) => {
+        set({ user });
+        setLoggedInCookie(true);
+      },
 
-      clearAuth: () => set({ user: null }),
+      clearAuth: () => {
+        set({ user: null });
+        setLoggedInCookie(false);
+      },
       // NOTE: _hasHydrated is intentionally NOT reset here.
 
       setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -143,6 +162,9 @@ export const useAuthStore = create<AuthStore>()(
        */
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);
+        if (state) {
+          setLoggedInCookie(!!state.user);
+        }
       },
     }
   )
