@@ -1,10 +1,11 @@
+import { env } from "./config/env.js";
+
 import dns from 'node:dns';
 dns.setServers(['8.8.8.8', '8.8.4.4']);
 
 import cors from "cors";
 import express from "express";
 import mongoose from "mongoose";
-import dotenv from "dotenv";
 import cookieParser from "cookie-parser";
 import helmet from "helmet";
 
@@ -15,10 +16,8 @@ import postRoutes from "./routes/post.routes.js";
 import feedRoutes from "./routes/feed.routes.js";
 import { errorHandler } from "./middleware/error-handler.middleware.js";
 
-dotenv.config();
-
-const Murl = process.env.MONGO_URL;
-const PORT = process.env.PORT || 3000;
+const Murl = env.MONGO_URL;
+const PORT = env.PORT;
 
 const app = express();
 
@@ -28,10 +27,9 @@ app.use(helmet());
 
 // M3: Restrict CORS to the configured frontend origin
 app.use(cors({
-    origin: process.env.CLIENT_URL,
+    origin: env.CLIENT_URL,
     credentials: true,
 }));
-
 
 // Core middleware
 app.use(express.json());
