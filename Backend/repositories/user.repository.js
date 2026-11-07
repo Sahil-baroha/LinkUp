@@ -25,7 +25,7 @@ export class UserRepository {
         const cached = await cache.get(cacheKey);
         if (cached) return cached;                          // already a plain object
 
-        const user = await User.findOne({ username });
+        const user = await User.findOne({ username }).select("-password");
         if (user) await cache.set(cacheKey, user.toObject(), 300);  // store plain object
         return user;
     }
