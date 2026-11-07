@@ -81,3 +81,17 @@ export class CacheService {
         }
     }
 }
+
+/**
+ * Read-only health check status of Redis cache.
+ * Returns "up" | "down" | "disabled".
+ */
+export function getCacheStatus() {
+    if (process.env.NODE_ENV === "test") {
+        return "disabled";
+    }
+    if (redis && (redis.status === "ready" || redis.status === "connect")) {
+        return "up";
+    }
+    return "down";
+}

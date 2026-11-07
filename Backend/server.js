@@ -20,6 +20,7 @@ import connectionRoutes from "./routes/connection.routes.js";
 import postRoutes from "./routes/post.routes.js";
 import feedRoutes from "./routes/feed.routes.js";
 import { errorHandler } from "./middleware/error-handler.middleware.js";
+import { getCacheStatus } from "./utils/cache.js";
 
 const app = express();
 
@@ -39,6 +40,49 @@ app.use(cors({
 // Core middleware
 app.use(express.json());
 app.use(cookieParser());
+
+// ── Health and Readiness checks (mounted at root, unauthenticated) ───────────
+app.get("/health", (_req, res) => {
+    res.status(200).json({
+        status: "ok",
+        uptime: process.uptime(),
+    });
+});
+
+app.get("/ready", async (_req, res) => {
+    let mongoStatus = "down";
+    if (mongoose.connection.readyState === 1 && mongoose.connection.db) {
+        try {
+            const timeoutPromise = new Promise((_, reject) => {
+                const timer = setTimeout(() => reject(new Error("timeout")), 2000);
+                timer.unref?.();
+            });
+            await Promise.race([
+                mongoose.connection.db.admin().ping(),
+                timeoutPromise,
+            ]);
+            mongoStatus = "up";
+        } catch {
+            mongoStatus = "down";
+        }
+    }
+
+    const redisStatus = getCacheStatus();
+
+    if (mongoStatus === "up") {
+        return res.status(200).json({
+            status: "ready",
+            mongo: "up",
+            redis: redisStatus,
+        });
+    }
+
+    return res.status(503).json({
+        status: "not_ready",
+        mongo: "down",
+        redis: redisStatus,
+    });
+});
 
 // Routes
 app.use("/api/v1/auth", authRoutes);               // Public  — register, login, logout
