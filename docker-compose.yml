@@ -36,8 +36,10 @@ services:
   backend:
     build: ./Backend
     restart: unless-stopped
+    stop_grace_period: 15s
     ports:
-      - "5000:5000"
+      # Bind to 127.0.0.1 only — do not expose backend to the host network
+      - "127.0.0.1:5000:5000"
     depends_on:
       mongo:
         condition: service_healthy
