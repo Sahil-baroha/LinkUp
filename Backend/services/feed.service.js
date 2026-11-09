@@ -13,9 +13,9 @@ export class FeedService {
      *   Step 3: Batch like + comment data in parallel
      *   Step 4: Build O(1) Maps and merge enrichment onto posts
      *
-     * @param {string} userId   - Current user's ID (string from JWT)
-     * @param {Date}   cursor   - Only return posts older than this date
-     * @param {number} limit    - Number of posts the caller wants
+     * @param {string}          userId  - Current user's ID (string from JWT)
+     * @param {string|Date}     cursor  - Only return posts older than this date (undefined = now)
+     * @param {number}          limit   - Number of posts the caller wants
      * @returns {{ posts: Array, hasMore: boolean, nextCursor: string|null }}
      */
     async getFeed(userId, cursor, limit) {
@@ -38,8 +38,11 @@ export class FeedService {
         // for hyper-connected users. Feed shows most-recently-connected peers first.
         const cappedIds = authorIds.slice(0, 1000);
 
+        // Normalize cursor: undefined → now, string → Date
+        const cursorDate = cursor ? new Date(cursor) : new Date();
+
         // ── Step 2: Fetch limit + 1 posts from connected users + self ────────
-        const rawPosts = await feedRepo.getFeedPosts(cappedIds, cursor, limit);
+        const rawPosts = await feedRepo.getFeedPosts(cappedIds, cursorDate, limit);
 
         // Determine hasMore from the extra document, then slice to limit
         const hasMore = rawPosts.length > limit;
