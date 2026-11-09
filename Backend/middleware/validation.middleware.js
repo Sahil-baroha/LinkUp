@@ -11,9 +11,14 @@ export const validate = (schema) => {
             });
             next();
         } catch (error) {
-            if (error instanceof ZodError) {
-                const errors = error.errors.map((err) => ({
-                    field: err.path.join("."),
+            const isZodError =
+                error instanceof ZodError ||
+                error?.name === "ZodError" ||
+                (error && Array.isArray(error.issues));
+
+            if (isZodError) {
+                const errors = (error.issues || []).map((err) => ({
+                    field: Array.isArray(err.path) ? err.path.join(".") : String(err.path ?? ""),
                     message: err.message,
                 }));
                 next(new ValidationError("Validation failed", errors));
