@@ -1,0 +1,26 @@
+# Ignore these paths when Docker builds context — keeps image small and safe
+
+# Never include installed packages (npm ci will reinstall)
+node_modules
+
+# Never include any .env files in the image
+.env*
+# Allow the example file through so it's visible if someone inspects the image
+!.env.example
+
+# Never include git metadata
+.git
+.gitignore
+
+# Runtime-generated upload directory (multer uses memoryStorage; no disk writes)
+uploads
+
+# HTTP client scratch file (not application code)
+api.http
+
+# Node debug logs
+npm-debug.log*
+
+# Docker files themselves (not needed inside the image)
+Dockerfile
+.dockerignore

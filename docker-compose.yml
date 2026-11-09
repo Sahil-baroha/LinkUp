@@ -1,0 +1,63 @@
+services:
+
+  # ── MongoDB ───────────────────────────────────────────────────────────────────
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      # Bind to 127.0.0.1 only — do not expose Mongo to the host network
+      - "127.0.0.1:27017:27017"
+    volumes:
+      - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      start_period: 20s
+      retries: 5
+
+  # ── Redis ─────────────────────────────────────────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    # Cache-only: no persistence (no appendonly, no save)
+    command: redis-server --maxmemory 128mb --maxmemory-policy allkeys-lru --save "" --appendonly no
+    ports:
+      # Bind to 127.0.0.1 only
+      - "127.0.0.1:6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      start_period: 5s
+      retries: 5
+
+  # ── Backend ───────────────────────────────────────────────────────────────────
+  backend:
+    build: ./Backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    depends_on:
+      mongo:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      # Services are addressed by compose service name inside the docker network
+      MONGO_URL: mongodb://mongo:27017/linkup
+      REDIS_URL: redis://redis:6379
+      CLIENT_URL: http://localhost:3000
+      # Mandatory — will fail at startup with a clear message if not set in .env
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET must be set in root .env}
+      # DNS_SERVERS not needed: compose internal DNS resolves service names
+      # Cloudinary: optional in development; required in production (env.js enforces)
+      # Pass through only when present in the host environment / root .env
+      CLOUDINARY_CLOUD_NAME: ${CLOUDINARY_CLOUD_NAME:-}
+      CLOUDINARY_API_KEY: ${CLOUDINARY_API_KEY:-}
+      CLOUDINARY_API_SECRET: ${CLOUDINARY_API_SECRET:-}
+
+volumes:
+  mongo_data:
