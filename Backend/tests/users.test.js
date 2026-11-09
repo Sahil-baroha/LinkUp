@@ -42,9 +42,7 @@ describe("Users Integration Tests", () => {
     });
 
     // (5) Part B: PATCH own profile with {active:false} and {"$set":{"active":false}} returns 4xx
-    // BUG NOTICED: validation.middleware.js reads `error.errors.map` instead of `error.issues.map` (Zod 4),
-    // throwing TypeError resulting in 500 instead of 400. Marked it.fails per instructions.
-    it.fails("PATCH own profile: rejects illegal field updates with 4xx and user stays active", async () => {
+    it("PATCH own profile: rejects illegal field updates with 4xx and user stays active", async () => {
         const email = "patch_illegal_user@example.com";
         const password = "password123456";
 
@@ -68,8 +66,10 @@ describe("Users Integration Tests", () => {
             .patch(`/api/v1/users/${userId}`)
             .set("Cookie", cookie)
             .send({ active: false });
-        expect(patchActiveRes.status).toBeGreaterThanOrEqual(400);
-        expect(patchActiveRes.status).toBeLessThan(500);
+        expect(patchActiveRes.status).toBe(400);
+        expect(patchActiveRes.body.success).toBe(false);
+        expect(typeof patchActiveRes.body.message).toBe("string");
+        expect(patchActiveRes.body.message.length).toBeGreaterThan(0);
 
         // Verify user is still active in database
         const dbUser = await User.findById(userId);
@@ -80,8 +80,10 @@ describe("Users Integration Tests", () => {
             .patch(`/api/v1/users/${userId}`)
             .set("Cookie", cookie)
             .send({ $set: { active: false } });
-        expect(patchInjectionRes.status).toBeGreaterThanOrEqual(400);
-        expect(patchInjectionRes.status).toBeLessThan(500);
+        expect(patchInjectionRes.status).toBe(400);
+        expect(patchInjectionRes.body.success).toBe(false);
+        expect(typeof patchInjectionRes.body.message).toBe("string");
+        expect(patchInjectionRes.body.message.length).toBeGreaterThan(0);
     });
 
     // (6) GET another user's profile has no email field; own profile has email
@@ -157,9 +159,7 @@ describe("Users Integration Tests", () => {
     });
 
     // (7) Part B: a 51-char q returns 4xx
-    // BUG NOTICED: validation.middleware.js reads `error.errors.map` instead of `error.issues.map` (Zod 4),
-    // throwing TypeError resulting in 500 instead of 400. Marked it.fails per instructions.
-    it.fails("Search: 51-character query returns 4xx", async () => {
+    it("Search: 51-character query returns 4xx", async () => {
         const loginRes = await request(app)
             .post("/api/v1/auth/login")
             .send({ email: "useralpha@example.com", password: "password123456" });
@@ -169,7 +169,9 @@ describe("Users Integration Tests", () => {
         const res4 = await request(app)
             .get(`/api/v1/users/search?q=${longQ}`)
             .set("Cookie", cookie);
-        expect(res4.status).toBeGreaterThanOrEqual(400);
-        expect(res4.status).toBeLessThan(500);
+        expect(res4.status).toBe(400);
+        expect(res4.body.success).toBe(false);
+        expect(typeof res4.body.message).toBe("string");
+        expect(res4.body.message.length).toBeGreaterThan(0);
     });
 });

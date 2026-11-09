@@ -152,9 +152,7 @@ describe("Cache and Feed Integration Tests", () => {
     });
 
     // (14) Part B: GET /feed with an invalid cursor string returns 4xx, not 500
-    // BUG NOTICED: validation.middleware.js reads `error.errors.map` instead of `error.issues.map` (Zod 4),
-    // throwing TypeError resulting in 500 instead of 400. Marked it.fails per instructions.
-    it.fails("feed: GET /feed with invalid cursor string returns 4xx, not 500", async () => {
+    it("feed: GET /feed with invalid cursor string returns 4xx, not 500", async () => {
         // Register & login User
         const reg = await request(app)
             .post("/api/v1/auth/register")
@@ -169,11 +167,13 @@ describe("Cache and Feed Integration Tests", () => {
             .send({ email: "cursor_user@example.com", password: "password123456" });
         const cookie = login.headers["set-cookie"];
 
-        // Invalid cursor string returns 4xx, not 500
+        // Invalid cursor string returns 400
         const invalidCursorRes = await request(app)
             .get("/api/v1/feed?cursor=not-a-valid-datetime")
             .set("Cookie", cookie);
-        expect(invalidCursorRes.status).toBeGreaterThanOrEqual(400);
-        expect(invalidCursorRes.status).toBeLessThan(500);
+        expect(invalidCursorRes.status).toBe(400);
+        expect(invalidCursorRes.body.success).toBe(false);
+        expect(typeof invalidCursorRes.body.message).toBe("string");
+        expect(invalidCursorRes.body.message.length).toBeGreaterThan(0);
     });
 });
