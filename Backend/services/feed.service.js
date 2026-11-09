@@ -8,7 +8,7 @@ export class FeedService {
      * C3: All feed orchestration now lives here (moved from FeedRepository).
      *
      * Algorithm (4 constant DB queries):
-     *   Step 1: Resolve connected user IDs
+     *   Step 1: Resolve connected user IDs (cached), then append own userId
      *   Step 2: Fetch limit+1 posts (for hasMore detection)
      *   Step 3: Batch like + comment data in parallel
      *   Step 4: Build O(1) Maps and merge enrichment onto posts
@@ -23,16 +23,22 @@ export class FeedService {
         // ── Step 1: Who is this user connected to? ───────────────────────────
         const connectedUserIds = await feedRepo.getAcceptedConnectionIds(userId);
 
-        // Short-circuit: no connections → empty feed (avoids Steps 2–4 entirely)
-        if (connectedUserIds.length === 0) {
-            return { posts: [], hasMore: false, nextCursor: null };
-        }
+        // C3: Always include the requesting user's own posts in the feed.
+        // Deduplicate: build a Set of string IDs, then convert back to array.
+        // The requester's own id is added AFTER the cache read — it is never
+        // stored in the connection cache (which tracks OTHER users only).
+        const userIdStr = String(userId);
+        const uniqueIdStrings = new Set([
+            ...connectedUserIds.map((id) => String(id)),
+            userIdStr,
+        ]);
+        const authorIds = [...uniqueIdStrings];
 
         // M12: Cap the $in array at 1000 to prevent MongoDB BSON doc size issues
         // for hyper-connected users. Feed shows most-recently-connected peers first.
-        const cappedIds = connectedUserIds.slice(0, 1000);
+        const cappedIds = authorIds.slice(0, 1000);
 
-        // ── Step 2: Fetch limit + 1 posts from connected users ───────────────
+        // ── Step 2: Fetch limit + 1 posts from connected users + self ────────
         const rawPosts = await feedRepo.getFeedPosts(cappedIds, cursor, limit);
 
         // Determine hasMore from the extra document, then slice to limit
