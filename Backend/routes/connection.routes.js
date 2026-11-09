@@ -18,16 +18,19 @@ import {
     withdrawRequestSchema,
     removeConnectionSchema,
 } from "../validators/connection.validator.js";
+import { readLimiter, writeLimiter } from "../middleware/rateLimiter.middleware.js";
 
 const router = Router();
 
 // All connection routes require authentication
 router.use(authenticate);
+// Non-GET methods rate limited to 60/min per user (skips GET/HEAD/OPTIONS)
+router.use(writeLimiter);
 
 // ── Read ──────────────────────────────────────────────────────────────────
-router.get("/", getMyConnections);
-router.get("/requests", getIncomingRequests);
-router.get("/sent", getOutgoingRequests);
+router.get("/", readLimiter, getMyConnections);
+router.get("/requests", readLimiter, getIncomingRequests);
+router.get("/sent", readLimiter, getOutgoingRequests);
 
 // ── Write ─────────────────────────────────────────────────────────────────
 router.post("/request/:userId", validate(sendRequestSchema), sendRequest);

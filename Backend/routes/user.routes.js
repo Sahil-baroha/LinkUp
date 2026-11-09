@@ -3,6 +3,7 @@ import { getUserById, updateUserProfile, searchUsers, deleteUser } from "../cont
 import { validate } from "../middleware/validation.middleware.js";
 import { updateUserSchema, searchUserSchema } from "../validators/user.validator.js";
 import { authenticate } from "../middleware/auth.middleware.js";
+import { searchLimiter } from "../middleware/rateLimiter.middleware.js";
 
 // C1: Import the ObjectId param schema — reused from post.validator.js
 // (same /^[a-f\d]{24}$/i pattern, avoids duplicating the definition)
@@ -17,7 +18,8 @@ const userIdParamSchema = z.object({
 const router = Router();
 
 // GET /users/search — must be defined BEFORE /users/:id to avoid :id catching "search"
-router.get("/search", authenticate, validate(searchUserSchema), searchUsers);
+// searchLimiter mounted AFTER authenticate (needs req.user.id)
+router.get("/search", authenticate, searchLimiter, validate(searchUserSchema), searchUsers);
 
 // GET /users/:id — C1: validate :id is a valid ObjectId before it reaches Mongoose
 router.get("/:id", authenticate, validate(userIdParamSchema), getUserById);
