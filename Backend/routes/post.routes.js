@@ -21,23 +21,26 @@ import {
     commentParamsSchema,
     editCommentSchema,
 } from "../validators/post.validator.js";
+import { readLimiter, writeLimiter, postCreateLimiter } from "../middleware/rateLimiter.middleware.js";
 
 const router = Router();
 
 // All post routes require authentication
 router.use(authenticate);
+// Non-GET methods rate limited to 60/min per user (skips GET/HEAD/OPTIONS)
+router.use(writeLimiter);
 
 // ── CRITICAL: /user/:userId must be declared BEFORE /:postId ────────────────
 // If /:postId comes first, Express will match "user" as a postId value.
 
 // GET /posts/user/:userId — all posts by a user
-router.get("/user/:userId", validate(userIdParamSchema), getPostsByUser);
+router.get("/user/:userId", readLimiter, validate(userIdParamSchema), getPostsByUser);
 
-// POST /posts — create a post (text + optional image)
-router.post("/", uploadSingle, validate(createPostSchema), createPost);
+// POST /posts — create a post (text + optional image) - additional 20 per 15 min per user limit
+router.post("/", postCreateLimiter, uploadSingle, validate(createPostSchema), createPost);
 
 // GET /posts/:postId — single post
-router.get("/:postId", validate(postIdSchema), getPostById);
+router.get("/:postId", readLimiter, validate(postIdSchema), getPostById);
 
 // PATCH /posts/:postId — edit post (text and/or image)
 router.patch("/:postId", uploadSingle, validate(updatePostSchema), updatePost);
@@ -50,11 +53,11 @@ router.delete("/:postId", validate(postIdSchema), deletePost);
 router.post("/:postId/like", validate(postIdSchema), toggleLike);
 
 // GET   /posts/:postId/likes — paginated like list + count
-router.get("/:postId/likes", validate(postPaginationQuerySchema), getLikes);
+router.get("/:postId/likes", readLimiter, validate(postPaginationQuerySchema), getLikes);
 
 // ── Comment routes ────────────────────────────────────────────────────────────
 // GET    /posts/:postId/comments  — paginated comment list
-router.get("/:postId/comments", validate(postPaginationQuerySchema), getComments);
+router.get("/:postId/comments", readLimiter, validate(postPaginationQuerySchema), getComments);
 
 // POST   /posts/:postId/comments  — add a comment
 router.post("/:postId/comments", validate(commentBodySchema), addComment);
