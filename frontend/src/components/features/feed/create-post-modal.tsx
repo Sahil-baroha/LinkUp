@@ -209,7 +209,7 @@ export function CreatePostModal() {
             <button
               type="submit"
               disabled={isPending || !bodyValue.trim()}
-              className="flex items-center gap-2 rounded-lg bg-[#0f172a] px-4 py-2 text-sm font-medium text-white disabled:opacity-50 transition-opacity"
+              className="flex cursor-pointer items-center gap-2 rounded-lg bg-[#0f172a] px-4 py-2 text-sm font-medium text-white transition-all duration-200 hover:bg-slate-700 active:scale-[0.98] disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isPending && <Spinner size="sm" />}
               {isEditMode ? "Save changes" : "Post"}

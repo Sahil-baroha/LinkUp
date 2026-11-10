@@ -1,7 +1,7 @@
 import Comment from "../models/comments.model.js";
 
 // Author field projection — never expose password or email on comment reads
-const AUTHOR_PROJECTION = "username profilePicture";
+const AUTHOR_PROJECTION = "name username profilePicture headline";
 
 export class CommentRepository {
 

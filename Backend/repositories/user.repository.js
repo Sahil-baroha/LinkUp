@@ -84,28 +84,72 @@ export class UserRepository {
     }
 
     /**
-     * Full-text style search on username OR name using a case-insensitive regex.
-     * Filters out deactivated accounts. Uses pagination.
+     * Search for users with prefix matches first, followed by contains matches.
+     * Selects ONLY name, username, profilePicture, headline, location.
+     * Filters out deactivated accounts and respects pagination.
      */
     async search(query, page = 1, limit = 10) {
         const safeQuery = escapeRegex(query);
-        const regex = new RegExp(safeQuery, "i");
+        const prefixRegex = new RegExp(`^${safeQuery}`, "i");
+        const containsRegex = new RegExp(safeQuery, "i");
+        const SEARCH_PROJECTION = "name username profilePicture headline location";
+
+        // Two-query approach for prefix-first relevance ordering with pagination:
+        // 1. Query prefix matches where name or username starts with the query.
+        // 2. Query other contains matches where name or username contains the query,
+        //    excluding users who already matched the prefix query to prevent duplicates.
+        // Slice and combine results across page/limit boundaries so prefix matches appear first.
+        const prefixFilter = {
+            active: true,
+            $or: [{ username: prefixRegex }, { name: prefixRegex }],
+        };
+
+        const containsFilter = {
+            active: true,
+            $or: [{ username: containsRegex }, { name: containsRegex }],
+            username: { $not: prefixRegex },
+            name: { $not: prefixRegex },
+        };
+
+        const [prefixCount, containsCount] = await Promise.all([
+            User.countDocuments(prefixFilter),
+            User.countDocuments(containsFilter),
+        ]);
+
+        const total = prefixCount + containsCount;
         const skip = (page - 1) * limit;
 
-        const [users, total] = await Promise.all([
-            User.find({
-                active: true,
-                $or: [{ username: regex }, { name: regex }]
-            })
-                .select("-password -email -active")
+        let users = [];
+        if (skip < prefixCount) {
+            const prefixLimit = Math.min(limit, prefixCount - skip);
+            const prefixUsers = await User.find(prefixFilter)
+                .select(SEARCH_PROJECTION)
                 .skip(skip)
+                .limit(prefixLimit)
+                .lean();
+
+            users.push(...prefixUsers);
+
+            const remaining = limit - prefixUsers.length;
+            if (remaining > 0 && containsCount > 0) {
+                const containsUsers = await User.find(containsFilter)
+                    .select(SEARCH_PROJECTION)
+                    .skip(0)
+                    .limit(remaining)
+                    .lean();
+
+                users.push(...containsUsers);
+            }
+        } else {
+            const containsSkip = skip - prefixCount;
+            const containsUsers = await User.find(containsFilter)
+                .select(SEARCH_PROJECTION)
+                .skip(containsSkip)
                 .limit(limit)
-                .lean(),
-            User.countDocuments({
-                active: true,
-                $or: [{ username: regex }, { name: regex }]
-            })
-        ]);
+                .lean();
+
+            users.push(...containsUsers);
+        }
 
         return { users, total, page, pages: Math.ceil(total / limit) };
     }

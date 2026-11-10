@@ -34,6 +34,8 @@ interface UserMetaProps {
   size?: "sm" | "md";
   /** ISO 8601 string or Date — displayed as relative time if provided */
   timestamp?: string | Date;
+  /** Show "Edited" indicator beside timestamp (post was updated after creation) */
+  isEdited?: boolean;
   className?: string;
 }
 
@@ -43,6 +45,7 @@ export function UserMeta({
   user,
   size = "md",
   timestamp,
+  isEdited = false,
   className,
 }: UserMetaProps) {
   const avatarSize = size === "sm" ? "sm" : "md";
@@ -96,6 +99,12 @@ export function UserMeta({
               >
                 {formatRelativeTime(timestamp)}
               </time>
+            </>
+          )}
+          {isEdited && (
+            <>
+              <span className="text-slate-300 text-xs">·</span>
+              <span className="shrink-0 text-slate-400 text-xs">Edited</span>
             </>
           )}
         </div>

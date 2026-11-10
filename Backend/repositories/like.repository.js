@@ -2,7 +2,7 @@ import mongoose from "mongoose";
 import Like from "../models/like.model.js";
 
 // User field projection — only expose public fields
-const USER_PROJECTION = "username profilePicture";
+const USER_PROJECTION = "name username profilePicture headline";
 
 export class LikeRepository {
 

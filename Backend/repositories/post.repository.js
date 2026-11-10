@@ -1,7 +1,7 @@
 import Post from "../models/posts.model.js";
 
 // Author field projection — never expose password or email on post reads
-const AUTHOR_PROJECTION = "username profilePicture";
+const AUTHOR_PROJECTION = "name username profilePicture headline";
 
 export class PostRepository {
 

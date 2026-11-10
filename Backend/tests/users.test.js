@@ -131,7 +131,7 @@ describe("Users Integration Tests", () => {
         expect(otherRes.body.data.email).toBeUndefined();
     });
 
-    // (7) Part A: search q=( , q=.* , q=[ each return 200
+    // (7) Part A: search q=(a , q=.* , q=[a each return 200
     it("Search: regex metacharacters return 200", async () => {
         // Login as User A
         const loginRes = await request(app)
@@ -139,9 +139,9 @@ describe("Users Integration Tests", () => {
             .send({ email: "useralpha@example.com", password: "password123456" });
         const cookie = loginRes.headers["set-cookie"];
 
-        // q = (
+        // q = (a
         const res1 = await request(app)
-            .get("/api/v1/users/search?q=(")
+            .get("/api/v1/users/search?q=(a")
             .set("Cookie", cookie);
         expect(res1.status).toBe(200);
 
@@ -151,9 +151,9 @@ describe("Users Integration Tests", () => {
             .set("Cookie", cookie);
         expect(res2.status).toBe(200);
 
-        // q = [
+        // q = [a
         const res3 = await request(app)
-            .get("/api/v1/users/search?q=[")
+            .get("/api/v1/users/search?q=[a")
             .set("Cookie", cookie);
         expect(res3.status).toBe(200);
     });
