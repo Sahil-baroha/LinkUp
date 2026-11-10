@@ -65,13 +65,13 @@ jobs:
 
   docker-smoke:
     runs-on: ubuntu-latest
+    env:
+      JWT_SECRET: fake_test_jwt_secret_48_characters_for_ci_linkup_123
     steps:
       - name: Checkout repository
         uses: actions/checkout@v7
 
       - name: Docker compose smoke test
-        env:
-          JWT_SECRET: fake_test_jwt_secret_48_characters_for_ci_linkup_123
         run: |
           docker compose up -d --build --wait
           timeout=60
