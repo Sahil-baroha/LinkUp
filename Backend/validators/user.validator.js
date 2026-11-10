@@ -70,3 +70,9 @@ export const searchUserSchema = z.object({
         page: z.coerce.number().int().min(1).default(1),
     }),
 });
+
+export const suggestionsSchema = z.object({
+    query: z.object({
+        limit: z.coerce.number().int().min(1).max(10).default(5),
+    }),
+});

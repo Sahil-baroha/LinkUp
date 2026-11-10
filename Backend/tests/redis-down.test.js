@@ -65,5 +65,12 @@ describe("Redis-Down Integration Tests (Memory Fallback)", () => {
             .get("/api/v1/users/search?q=ab")
             .set("Cookie", cookie);
         expect(res31.status).toBe(429);
+
+        // 5. GET /users/suggestions returns 200 even with Redis down
+        const sugRes = await request(app)
+            .get("/api/v1/users/suggestions?limit=5")
+            .set("Cookie", cookie);
+        expect(sugRes.status).toBe(200);
+        expect(Array.isArray(sugRes.body.data)).toBe(true);
     });
 });

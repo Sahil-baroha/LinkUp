@@ -11,6 +11,75 @@ function connIdsKey(userId) {
 export class ConnectionRepository {
 
     /**
+     * Map a raw Connection document into the standard relationship object.
+     * status: "none" | "pending_sent" | "pending_received" | "connected".
+     * "rejected" maps to "none".
+     * requestId is string or null when status is "none".
+     */
+    mapRelationship(conn, requesterId) {
+        if (!conn || conn.status === "rejected") {
+            return { status: "none", requestId: null };
+        }
+        const requestId = conn._id ? String(conn._id) : null;
+        if (conn.status === "accepted") {
+            return { status: "connected", requestId };
+        }
+        if (conn.status === "pending") {
+            const isSender = String(conn.senderId?._id || conn.senderId) === String(requesterId);
+            return {
+                status: isSender ? "pending_sent" : "pending_received",
+                requestId,
+            };
+        }
+        return { status: "none", requestId: null };
+    }
+
+    /**
+     * Get the relationship between a requester and a target user.
+     */
+    async getRelationship(requesterId, targetUserId) {
+        if (!requesterId || !targetUserId || String(requesterId) === String(targetUserId)) {
+            return null;
+        }
+        const conn = await this.findBetweenUsers(requesterId, targetUserId);
+        return this.mapRelationship(conn, requesterId);
+    }
+
+    /**
+     * Batch-fetch relationships between a requester and a list of target user IDs.
+     * Returns a Map of targetUserId string -> { status, requestId }.
+     */
+    async getRelationshipsBatch(requesterId, targetUserIds) {
+        if (!requesterId || !targetUserIds || targetUserIds.length === 0) {
+            return new Map();
+        }
+        const connections = await Connection.find({
+            $or: [
+                { senderId: requesterId, receiverId: { $in: targetUserIds } },
+                { senderId: { $in: targetUserIds }, receiverId: requesterId },
+            ]
+        }).lean();
+
+        const map = new Map();
+        for (const conn of connections) {
+            const senderStr = String(conn.senderId?._id || conn.senderId);
+            const receiverStr = String(conn.receiverId?._id || conn.receiverId);
+            const otherId = senderStr === String(requesterId) ? receiverStr : senderStr;
+            map.set(otherId, this.mapRelationship(conn, requesterId));
+        }
+
+        // Ensure all target IDs have an entry in the map (defaults to none)
+        for (const targetId of targetUserIds) {
+            const idStr = String(targetId);
+            if (!map.has(idStr)) {
+                map.set(idStr, { status: "none", requestId: null });
+            }
+        }
+
+        return map;
+    }
+
+    /**
      * Find a connection between two users in EITHER direction.
      * This is the core query for preventing reverse duplicates (Rule 15 & 16).
      */

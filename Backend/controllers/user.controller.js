@@ -5,6 +5,16 @@ import { asyncHandler } from "../middleware/error-handler.middleware.js";
 const userService = new UserService();
 
 /**
+ * GET /users/suggestions?limit=5
+ * Returns connection suggestions ranked by mutual connections then newest.
+ */
+export const getSuggestions = asyncHandler(async (req, res) => {
+    const { limit = 5 } = req.query;
+    const suggestions = await userService.getSuggestions(req.user.id, Number(limit));
+    return ApiResponse.success(res, suggestions, "Suggestions fetched successfully");
+});
+
+/**
  * GET /users/:id
  * Returns a public user profile (no password).
  */
@@ -51,7 +61,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
  */
 export const searchUsers = asyncHandler(async (req, res) => {
     const { q, page = 1, limit = 10 } = req.query;
-    const result = await userService.searchUsers(q, Number(page), Number(limit));
+    const result = await userService.searchUsers(q, Number(page), Number(limit), req.user?.id);
     return ApiResponse.success(res, result, "Search completed successfully");
 });
 
