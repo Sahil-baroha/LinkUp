@@ -1,0 +1,133 @@
+# Note: This workflow covers Backend testing, Docker smoke checks, dependency auditing, and secrets scanning.
+# Frontend build, linting, and end-to-end checks are not covered yet and will arrive in a later phase.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend-tests:
+    runs-on: ubuntu-latest
+    services:
+      mongo:
+        image: mongo:7
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "echo 'db.runCommand(\"ping\").ok' | mongosh localhost:27017/test --quiet"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: "npm"
+          cache-dependency-path: Backend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: Backend
+        run: npm ci
+
+      - name: Run tests
+        working-directory: Backend
+        env:
+          NODE_ENV: test
+          MONGO_URL: mongodb://127.0.0.1:27017/linkup_test
+          REDIS_URL: redis://127.0.0.1:6379/1
+          JWT_SECRET: fake_test_jwt_secret_48_characters_for_ci_linkup_123
+          CLIENT_URL: http://localhost:3000
+        run: npm test
+
+  docker-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Docker compose smoke test
+        env:
+          JWT_SECRET: fake_test_jwt_secret_48_characters_for_ci_linkup_123
+        run: |
+          docker compose up -d --build --wait
+          timeout=60
+          elapsed=0
+          ready=false
+          while [ "$elapsed" -lt "$timeout" ]; do
+            response=$(curl -s http://localhost:5000/ready || true)
+            if echo "$response" | grep -q '"mongo":"up"' && echo "$response" | grep -q '"redis":"up"'; then
+              echo "Backend is ready: $response"
+              ready=true
+              break
+            fi
+            sleep 2
+            elapsed=$((elapsed + 2))
+          done
+          if [ "$ready" != "true" ]; then
+            echo "Backend readiness check timed out after 60s"
+            exit 1
+          fi
+
+      - name: Dump backend logs
+        if: always()
+        run: docker compose logs backend --tail 30
+
+      - name: Clean up docker compose
+        if: always()
+        run: docker compose down -v
+
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: 22
+
+      - name: Run dependency audit
+        working-directory: Backend
+        continue-on-error: true
+        run: |
+          echo "### Dependency Audit (Backend Production)" >> "$GITHUB_STEP_SUMMARY"
+          echo '```text' >> "$GITHUB_STEP_SUMMARY"
+          npm audit --omit=dev --audit-level=high 2>&1 | tee -a "$GITHUB_STEP_SUMMARY" || true
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full history
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks secret scan
+        run: |
+          docker run --rm -v "${{ github.workspace }}:/path" -w /path zricethezav/gitleaks:v8.30.1 detect --source="/path" --redact --verbose
