@@ -59,7 +59,7 @@ export function LikeButton({ postId, initialLiked, initialCount }: LikeButtonPro
       onClick={handleClick}
       disabled={toggleMutation.isPending}
       aria-label={liked ? "Unlike" : "Like"}
-      className="flex items-center gap-1.5 text-sm transition-colors hover:text-indigo-600 disabled:cursor-not-allowed"
+      className="group flex items-center gap-1.5 text-sm transition-colors hover:text-indigo-600 disabled:cursor-not-allowed"
     >
       {toggleMutation.isPending ? (
         <Spinner size="sm" />
@@ -67,7 +67,10 @@ export function LikeButton({ postId, initialLiked, initialCount }: LikeButtonPro
         <motion.span
           animate={animating ? { scale: [1, 1.4, 0.9, 1] } : {}}
           transition={{ duration: 0.4, ease: "easeOut" }}
-          className={cn(liked ? "text-indigo-600" : "text-slate-500")}
+          className={cn(
+            "transition-transform group-hover:scale-110",
+            liked ? "text-indigo-600" : "text-slate-500"
+          )}
         >
           <ThumbsUp
             size={16}

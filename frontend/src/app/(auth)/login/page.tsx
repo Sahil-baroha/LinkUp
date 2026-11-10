@@ -48,19 +48,19 @@ type LoginValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const router = useRouter();
   const setUser = useAuthStore((s) => s.setUser);
-  const isAuthenticated = useAuthStore((s) => s._hasHydrated && !!s.user);
+  const clearAuth = useAuthStore((s) => s.clearAuth);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   const [isLoading, setIsLoading] = useState(false);
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Client-side guard — redirect immediately if already authenticated
+  // Clear stale local auth state on mount (middleware handles redirecting authenticated users)
   useEffect(() => {
-    if (hasHydrated && isAuthenticated) {
-      router.replace("/feed");
+    if (hasHydrated) {
+      clearAuth();
     }
-  }, [hasHydrated, isAuthenticated, router]);
+  }, [hasHydrated, clearAuth]);
 
   const {
     register,
