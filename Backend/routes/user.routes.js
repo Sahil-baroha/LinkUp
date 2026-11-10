@@ -1,9 +1,9 @@
 import { Router } from "express";
-import { getUserById, updateUserProfile, searchUsers, deleteUser } from "../controllers/user.controller.js";
+import { getUserById, updateUserProfile, searchUsers, deleteUser, getSuggestions } from "../controllers/user.controller.js";
 import { validate } from "../middleware/validation.middleware.js";
-import { updateUserSchema, searchUserSchema } from "../validators/user.validator.js";
+import { updateUserSchema, searchUserSchema, suggestionsSchema } from "../validators/user.validator.js";
 import { authenticate } from "../middleware/auth.middleware.js";
-import { searchLimiter } from "../middleware/rateLimiter.middleware.js";
+import { searchLimiter, readLimiter } from "../middleware/rateLimiter.middleware.js";
 
 // C1: Import the ObjectId param schema — reused from post.validator.js
 // (same /^[a-f\d]{24}$/i pattern, avoids duplicating the definition)
@@ -21,10 +21,14 @@ const router = Router();
 // searchLimiter mounted AFTER authenticate (needs req.user.id)
 router.get("/search", authenticate, searchLimiter, validate(searchUserSchema), searchUsers);
 
+// GET /users/suggestions — must be defined BEFORE /users/:id to avoid :id catching "suggestions"
+// readLimiter mounted AFTER authenticate (needs req.user.id)
+router.get("/suggestions", authenticate, readLimiter, validate(suggestionsSchema), getSuggestions);
+
 // GET /users/:id — C1: validate :id is a valid ObjectId before it reaches Mongoose
 router.get("/:id", authenticate, validate(userIdParamSchema), getUserById);
 
-// PATCH /users/:id — restricted to username and profilePicture only
+// PATCH /users/:id — restricted to allowed fields
 router.patch("/:id", authenticate, validate(userIdParamSchema), validate(updateUserSchema), updateUserProfile);
 
 // DELETE /users/:id — soft delete (sets active = false) — C1: validate :id
