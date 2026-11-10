@@ -3,7 +3,8 @@ import { connectionRepo } from "../repositories/connection.repository.js";
 import { CacheService } from "../utils/cache.js";
 import Connection from "../models/connections.model.js";
 import User from "../models/user.model.js";
-import { NotFoundError, ConflictError, ForbiddenError } from "../utils/errors.js";
+import { NotFoundError, ConflictError, ForbiddenError, BadRequestError } from "../utils/errors.js";
+import { uploadToCloudinary, deleteFromCloudinary } from "../utils/cloudinary.js";
 
 const cache = new CacheService();
 
@@ -56,6 +57,63 @@ export class UserService {
         const user = await userRepo.update(targetId, updates);
         if (!user) throw new NotFoundError("User not found");
         return user;
+    }
+
+    /**
+     * Upload an avatar for the user.
+     * PUT /users/:id/avatar
+     * - Owner only
+     * - Uploads to Cloudinary folder "linkup/avatars" with 512x512 fill crop
+     * - Updates profilePicture and profilePicturePublicId (select: false)
+     * - Deletes previous Cloudinary asset best-effort AFTER DB update (log once, don't throw)
+     * - Invalidates user cache keys (id and username)
+     * - Returns sanitized user object (owner view)
+     */
+    async uploadAvatar(requesterId, targetId, file) {
+        if (String(requesterId) !== String(targetId)) {
+            throw new ForbiddenError("You can only update your own profile");
+        }
+
+        if (!file) {
+            throw new BadRequestError("Avatar image file is required");
+        }
+
+        const current = await User.findById(targetId).select("+profilePicturePublicId");
+        if (!current || !current.active) {
+            throw new NotFoundError("User not found");
+        }
+
+        const oldPublicId = current.profilePicturePublicId;
+
+        // Upload new avatar to Cloudinary
+        const uploaded = await uploadToCloudinary(
+            file.buffer,
+            file.mimetype,
+            "linkup/avatars",
+            [{ width: 512, height: 512, crop: "fill" }]
+        );
+
+        // Update DB
+        current.profilePicture = uploaded.url;
+        current.profilePicturePublicId = uploaded.publicId;
+        await current.save();
+
+        // Invalidate cache
+        await cache.delete(`user:id:${targetId}`);
+        await cache.delete(`user:username:${current.username}`);
+        await cache.delete(`user:email:${current.email}`);
+
+        // Delete old asset best-effort AFTER DB update
+        if (oldPublicId) {
+            try {
+                await deleteFromCloudinary(oldPublicId);
+            } catch (err) {
+                console.error(`[Avatar] Failed to delete previous Cloudinary asset ${oldPublicId}:`, err.message);
+            }
+        }
+
+        // Return sanitized owner profile shape
+        return await this.getUserById(targetId, requesterId);
     }
 
     /**

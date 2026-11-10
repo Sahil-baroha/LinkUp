@@ -56,6 +56,16 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
 });
 
 /**
+ * PUT /users/:id/avatar
+ * Uploads user avatar image to Cloudinary and updates profile.
+ * Restricted to profile owner.
+ */
+export const uploadUserAvatar = asyncHandler(async (req, res) => {
+    const user = await userService.uploadAvatar(req.user.id, req.params.id, req.file);
+    return ApiResponse.success(res, user, "Avatar uploaded successfully");
+});
+
+/**
  * GET /users/search?q=query&page=1&limit=10
  * Searches users by username or name. Excludes inactive accounts.
  */

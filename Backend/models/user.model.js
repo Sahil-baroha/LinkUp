@@ -122,6 +122,11 @@ const userSchema = mongoose.Schema({
         type: String,
         default: "",
     },
+    profilePicturePublicId: {
+        type: String,
+        default: null,
+        select: false,
+    },
     headline: {
         type: String,
         trim: true,
