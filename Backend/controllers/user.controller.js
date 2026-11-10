@@ -15,13 +15,32 @@ export const getUserById = asyncHandler(async (req, res) => {
 
 /**
  * PATCH /users/:id
- * Updates only username and/or profilePicture.
+ * Updates allowed profile fields.
  * Requires authentication. Users can only update their own profile.
  */
 export const updateUserProfile = asyncHandler(async (req, res) => {
     const updates = {};
+    if (req.body.name !== undefined) updates.name = typeof req.body.name === "string" ? req.body.name.trim() : req.body.name;
     if (req.body.username !== undefined) updates.username = req.body.username;
     if (req.body.profilePicture !== undefined) updates.profilePicture = req.body.profilePicture;
+    if (req.body.headline !== undefined) updates.headline = typeof req.body.headline === "string" ? req.body.headline.trim() : req.body.headline;
+    if (req.body.about !== undefined) updates.about = typeof req.body.about === "string" ? req.body.about.trim() : req.body.about;
+    if (req.body.location !== undefined) updates.location = typeof req.body.location === "string" ? req.body.location.trim() : req.body.location;
+    if (req.body.skills !== undefined) {
+        const seen = new Set();
+        const dedupedSkills = [];
+        for (const s of req.body.skills) {
+            const trimmed = typeof s === "string" ? s.trim() : s;
+            const lower = typeof trimmed === "string" ? trimmed.toLowerCase() : trimmed;
+            if (!seen.has(lower)) {
+                seen.add(lower);
+                dedupedSkills.push(trimmed);
+            }
+        }
+        updates.skills = dedupedSkills;
+    }
+    if (req.body.experience !== undefined) updates.experience = req.body.experience;
+    if (req.body.education !== undefined) updates.education = req.body.education;
     const user = await userService.updateProfile(req.user.id, req.params.id, updates);
     return ApiResponse.success(res, user, "Profile updated successfully");
 });
