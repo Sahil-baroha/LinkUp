@@ -51,7 +51,7 @@ export class UserRepository {
         const user = await User.findByIdAndUpdate(
             id,
             updates,
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         ).select("-password");
 
         if (user) {
@@ -71,7 +71,7 @@ export class UserRepository {
         const user = await User.findByIdAndUpdate(
             id,
             { active: false },
-            { new: true }
+            { returnDocument: "after" }
         ).select("-password");
 
         if (user) {

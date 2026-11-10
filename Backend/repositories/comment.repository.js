@@ -50,7 +50,7 @@ export class CommentRepository {
         return await Comment.findByIdAndUpdate(
             commentId,
             { $set: { body } },
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         )
             .populate("authorId", AUTHOR_PROJECTION)
             .lean();
