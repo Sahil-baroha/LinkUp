@@ -88,8 +88,8 @@ export class ConnectionRepository {
             $or: [{ senderId: userId }, { receiverId: userId }],
             status: "accepted"
         })
-            .populate("senderId", "name username profilePicture")
-            .populate("receiverId", "name username profilePicture")
+            .populate("senderId", "name username profilePicture headline")
+            .populate("receiverId", "name username profilePicture headline")
             .sort({ updatedAt: -1 })
             .lean();
     }
@@ -102,7 +102,7 @@ export class ConnectionRepository {
             receiverId: userId,
             status: "pending"
         })
-            .populate("senderId", "name username profilePicture")
+            .populate("senderId", "name username profilePicture headline")
             .sort({ createdAt: -1 })
             .lean();
     }
@@ -115,7 +115,7 @@ export class ConnectionRepository {
             senderId: userId,
             status: "pending"
         })
-            .populate("receiverId", "name username profilePicture")
+            .populate("receiverId", "name username profilePicture headline")
             .sort({ createdAt: -1 })
             .lean();
     }
