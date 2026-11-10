@@ -6,10 +6,11 @@ const PUBLIC_ROUTES = ['/login', '/register'];
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
-  // Check cookie presence (NOTE: cannot verify JWT signature in Edge Runtime — 
-  // the axios 401 interceptor handles actual token expiry at API call time)
+  // Check both HttpOnly token and client-synced logged-in cookie to prevent redirect loops
   const tokenCookie = request.cookies.get('token');
-  const isAuthenticated = Boolean(tokenCookie?.value);
+  const loggedInCookie = request.cookies.get('linkup-logged-in');
+  
+  const isAuthenticated = Boolean(tokenCookie?.value) && Boolean(loggedInCookie?.value);
 
   // Root: redirect to feed or login
   if (pathname === '/') {

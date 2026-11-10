@@ -49,7 +49,7 @@ function SkeletonCard() {
 
 export function FeedSkeleton() {
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
       <SkeletonCard />
       <SkeletonCard />
       <SkeletonCard />
