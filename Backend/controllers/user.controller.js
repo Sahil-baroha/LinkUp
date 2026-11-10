@@ -51,7 +51,7 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
  */
 export const searchUsers = asyncHandler(async (req, res) => {
     const { q, page = 1, limit = 10 } = req.query;
-    const result = await userService.searchUsers(q, Number(page), Number(limit));
+    const result = await userService.searchUsers(q, Number(page), Number(limit), req.user?.id);
     return ApiResponse.success(res, result, "Search completed successfully");
 });
 

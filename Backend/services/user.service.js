@@ -1,10 +1,13 @@
 import { userRepo } from "../repositories/user.repository.js";
+import { connectionRepo } from "../repositories/connection.repository.js";
 import { NotFoundError, ConflictError, ForbiddenError } from "../utils/errors.js";
 
 export class UserService {
     /**
      * Fetch a single active user by ID, excluding password.
      * When requested by another user (requesterId !== id), email and active are stripped.
+     * When requester is not the target, adds relationship object `connection: { status, requestId }`.
+     * Omitted for own profile.
      */
     async getUserById(id, requesterId = null) {
         const user = await userRepo.findById(id);
@@ -15,6 +18,9 @@ export class UserService {
         if (!requesterId || String(requesterId) !== String(id)) {
             delete userObj.email;
             delete userObj.active;
+            if (requesterId) {
+                userObj.connection = await connectionRepo.getRelationship(requesterId, id);
+            }
         }
 
         return userObj;
@@ -50,9 +56,24 @@ export class UserService {
     /**
      * Search for users by username or name.
      * Excludes inactive accounts. Results are paginated.
+     * Adds connection: { status, requestId } to every result via one batched query.
      */
-    async searchUsers(query, page, limit) {
-        return await userRepo.search(query, page, limit);
+    async searchUsers(query, page, limit, requesterId = null) {
+        const result = await userRepo.search(query, page, limit);
+        if (requesterId && result.users && result.users.length > 0) {
+            const targetIds = result.users.map(u => u._id);
+            const connectionMap = await connectionRepo.getRelationshipsBatch(requesterId, targetIds);
+            result.users = result.users.map(u => ({
+                ...u,
+                connection: connectionMap.get(String(u._id)) || { status: "none", requestId: null }
+            }));
+        } else if (result.users) {
+            result.users = result.users.map(u => ({
+                ...u,
+                connection: { status: "none", requestId: null }
+            }));
+        }
+        return result;
     }
 
     /**
