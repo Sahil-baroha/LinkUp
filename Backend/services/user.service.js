@@ -12,7 +12,7 @@ export class UserService {
         if (!user.active) throw new NotFoundError("User not found");
 
         const userObj = typeof user.toObject === "function" ? user.toObject() : { ...user };
-        if (requesterId && String(requesterId) !== String(id)) {
+        if (!requesterId || String(requesterId) !== String(id)) {
             delete userObj.email;
             delete userObj.active;
         }
@@ -21,7 +21,7 @@ export class UserService {
     }
 
     /**
-     * Update only the allowed profile fields (username and/or profilePicture).
+     * Update only the allowed profile fields.
      * Enforces ownership — users can only update their own profile.
      * M9: Rejects updates from deactivated accounts (token may still be valid).
      */
