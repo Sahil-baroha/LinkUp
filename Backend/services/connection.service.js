@@ -44,6 +44,21 @@ export class ConnectionService {
         return await connectionRepo.getOutgoingRequests(userId);
     }
 
+    /**
+     * Get relationship object { status, requestId } between requester and target user.
+     */
+    async getRelationship(requesterId, targetUserId) {
+        return await connectionRepo.getRelationship(requesterId, targetUserId);
+    }
+
+    /**
+     * Batch-fetch relationships between requester and multiple target user IDs.
+     * Returns Map of targetUserId string -> { status, requestId }.
+     */
+    async getRelationshipsBatch(requesterId, targetUserIds) {
+        return await connectionRepo.getRelationshipsBatch(requesterId, targetUserIds);
+    }
+
     // ─── WRITE ───────────────────────────────────────────────────────────────
 
     /**
@@ -188,3 +203,5 @@ export class ConnectionService {
         return { message: "Connection removed" };
     }
 }
+
+export const connectionService = new ConnectionService();
