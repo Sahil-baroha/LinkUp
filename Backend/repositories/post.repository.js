@@ -42,7 +42,7 @@ export class PostRepository {
         return await Post.findByIdAndUpdate(
             postId,
             { $set: fields },
-            { new: true, runValidators: true }
+            { returnDocument: "after", runValidators: true }
         )
             .populate("authorId", AUTHOR_PROJECTION)
             .lean();

@@ -47,7 +47,7 @@ export class ConnectionRepository {
         const connection = await Connection.findByIdAndUpdate(
             connectionId,
             { status },
-            { new: true }
+            { returnDocument: "after" }
         );
 
         // Invalidate both users' caches whenever the accepted set may have changed
