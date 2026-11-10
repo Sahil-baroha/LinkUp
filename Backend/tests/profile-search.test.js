@@ -1,7 +1,10 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import request from "supertest";
 import { app } from "../app.js";
-import { connectTestMongo, cleanupTestMongo } from "./setup.js";
+import { connectTestMongo, cleanupTestMongo, flushTestRedis } from "./setup.js";
+
+let ipCounter = 100;
+const nextIp = () => `10.1.${Math.floor(ipCounter / 250)}.${(ipCounter++ % 250) + 1}`;
 
 describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
     let userAId;
@@ -11,10 +14,12 @@ describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
 
     beforeAll(async () => {
         await connectTestMongo();
+        await flushTestRedis();
 
         // Register and login User A
         const regA = await request(app)
             .post("/api/v1/auth/register")
+            .set("X-Forwarded-For", nextIp())
             .send({
                 name: "Alice Original",
                 username: "aliceprofile",
@@ -25,12 +30,14 @@ describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
 
         const loginA = await request(app)
             .post("/api/v1/auth/login")
+            .set("X-Forwarded-For", nextIp())
             .send({ email: "alice_profile@example.com", password: "password123456" });
         cookieA = loginA.headers["set-cookie"];
 
         // Register and login User B
         const regB = await request(app)
             .post("/api/v1/auth/register")
+            .set("X-Forwarded-For", nextIp())
             .send({
                 name: "Bob Reader",
                 username: "bobprofile",
@@ -41,6 +48,7 @@ describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
 
         const loginB = await request(app)
             .post("/api/v1/auth/login")
+            .set("X-Forwarded-For", nextIp())
             .send({ email: "bob_profile@example.com", password: "password123456" });
         cookieB = loginB.headers["set-cookie"];
     });
@@ -306,6 +314,7 @@ describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
         // Seed user "eve"
         await request(app)
             .post("/api/v1/auth/register")
+            .set("X-Forwarded-For", nextIp())
             .send({
                 name: "Eve Prefix",
                 username: "eve_search",
@@ -316,6 +325,7 @@ describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
         // Seed user "steve"
         await request(app)
             .post("/api/v1/auth/register")
+            .set("X-Forwarded-For", nextIp())
             .send({
                 name: "Steve Contains",
                 username: "steve_search",
