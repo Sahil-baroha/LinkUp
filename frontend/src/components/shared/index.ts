@@ -15,3 +15,5 @@ export { Spinner, FullPageSpinner } from "./spinner";
 export { EmptyState }   from "./empty-state";
 export { UserMeta }     from "./user-meta";
 export { StoreHydration } from "./store-hydration";
+export { Card }       from "./card";
+export { PageHeader } from "./page-header";
