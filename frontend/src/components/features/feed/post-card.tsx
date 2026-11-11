@@ -16,7 +16,6 @@
 import { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
 import { MoreHorizontal, Trash2, Pencil, Share2 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
@@ -50,7 +49,6 @@ interface PostCardProps {
 }
 
 export function PostCard({ post, showFullBody = false }: PostCardProps) {
-  const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const isOwn = user?._id === post.authorId._id;
 
@@ -70,8 +68,6 @@ export function PostCard({ post, showFullBody = false }: PostCardProps) {
 
   const deleteMutation = useDeletePost(user?._id);
   const updateMutation = useUpdatePost(post._id);
-
-  const isFeedPost = "isLikedByMe" in post;
 
   async function handleDelete() {
     deleteMutation.mutate(post._id, {

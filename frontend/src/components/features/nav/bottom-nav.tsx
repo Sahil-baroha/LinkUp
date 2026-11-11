@@ -29,12 +29,6 @@ export function BottomNav() {
 
   if (!user) return null;
 
-  const navItems = [
-    { href: "/feed",                  icon: House,  label: "Home"        },
-    { href: "/connections",           icon: Users,  label: "Connections", badge: pendingCount > 0 },
-    { href: `/profile/${user._id}`,   icon: User,   label: "Profile"     },
-  ];
-
   function isActive(href: string) {
     if (href === "/feed") return pathname === "/feed";
     return pathname.startsWith(href);

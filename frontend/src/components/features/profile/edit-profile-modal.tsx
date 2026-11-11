@@ -77,6 +77,7 @@ export function EditProfileModal({ open, onOpenChange, user }: EditProfileModalP
     });
   }, [user, reset]);
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- React Hook Form watch cannot be memoized by React Compiler
   const watchedPicture = watch("profilePicture");
 
   async function onSubmit(values: FormValues) {

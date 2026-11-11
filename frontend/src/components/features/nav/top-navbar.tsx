@@ -22,7 +22,6 @@ import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Search, LogOut, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
-import { useUiStore } from "@/store/ui-store";
 import { logout } from "@/lib/api";
 import { Avatar } from "@/components/shared/avatar";
 import { UserSearch } from "@/components/features/connections/user-search";
@@ -38,7 +37,6 @@ export function TopNavbar() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const mobileSearchOpen = useUiStore((s) => s.sidebarOpen); // reuse sidebarOpen as mobile search flag
   const [mobileSearchOpen_, setMobileSearchOpen] = useState(false);
 
   async function handleSignOut() {

@@ -19,7 +19,7 @@ import { useDeleteComment, useUpdateComment } from "@/hooks/use-comments";
 import { Avatar } from "@/components/shared/avatar";
 import { Spinner } from "@/components/shared/spinner";
 import { Textarea } from "@/components/ui/textarea";
-import { formatRelativeTime, cn } from "@/lib/utils";
+import { formatRelativeTime } from "@/lib/utils";
 import Link from "next/link";
 import type { Comment } from "@/types";
 

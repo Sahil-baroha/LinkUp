@@ -116,10 +116,14 @@ export const useAuthStore = create<AuthStore>()(
       storage: createJSONStorage((): Storage => {
         if (typeof window === "undefined") {
           return {
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Storage interface compliance
             getItem: (_key: string) => null,
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Storage interface compliance
             setItem: (_key: string, _value: string) => {},
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Storage interface compliance
             removeItem: (_key: string) => {},
             clear: () => {},
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Storage interface compliance
             key: (_index: number) => null,
             length: 0,
           };
@@ -149,6 +153,7 @@ export const useAuthStore = create<AuthStore>()(
        *
        * version 0 → 1: no field changes, no migration needed.
        */
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars -- Zustand migration signature requirement
       migrate: (persistedState, _version) => {
         // Future migrations go here, e.g.:
         // if (_version === 0) { add/rename fields on persistedState }
