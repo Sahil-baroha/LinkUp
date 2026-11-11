@@ -24,5 +24,8 @@ connectionSchema.index({ senderId: 1, receiverId: 1 }, { unique: true });
 // Feed query index: filter accepted connections by participant efficiently
 connectionSchema.index({ senderId: 1, receiverId: 1, status: 1 });
 
+// Incoming / accepted query index: filter connections by receiver and status efficiently
+connectionSchema.index({ receiverId: 1, status: 1 });
+
 const Connection = mongoose.model("Connection", connectionSchema);
 export default Connection;  

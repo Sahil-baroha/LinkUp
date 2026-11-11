@@ -86,9 +86,9 @@ export class UserRepository {
     /**
      * Search for users with prefix matches first, followed by contains matches.
      * Selects ONLY name, username, profilePicture, headline, location.
-     * Filters out deactivated accounts and respects pagination.
+     * Filters out deactivated accounts, optionally excludes requesterId, and respects pagination.
      */
-    async search(query, page = 1, limit = 10) {
+    async search(query, page = 1, limit = 10, requesterId = null) {
         const safeQuery = escapeRegex(query);
         const prefixRegex = new RegExp(`^${safeQuery}`, "i");
         const containsRegex = new RegExp(safeQuery, "i");
@@ -103,6 +103,9 @@ export class UserRepository {
             active: true,
             $or: [{ username: prefixRegex }, { name: prefixRegex }],
         };
+        if (requesterId) {
+            prefixFilter._id = { $ne: requesterId };
+        }
 
         const containsFilter = {
             active: true,
@@ -110,6 +113,9 @@ export class UserRepository {
             username: { $not: prefixRegex },
             name: { $not: prefixRegex },
         };
+        if (requesterId) {
+            containsFilter._id = { $ne: requesterId };
+        }
 
         const [prefixCount, containsCount] = await Promise.all([
             User.countDocuments(prefixFilter),

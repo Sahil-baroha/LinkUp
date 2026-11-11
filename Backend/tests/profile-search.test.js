@@ -351,7 +351,7 @@ describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
 
     it("search results contain no about/experience/education keys", async () => {
         const res = await request(app)
-            .get("/api/v1/users/search?q=alice")
+            .get("/api/v1/users/search?q=bob")
             .set("Cookie", cookieA);
 
         expect(res.status).toBe(200);
@@ -362,6 +362,19 @@ describe("Phase 5.1a Profile Data and Search Integration Tests", () => {
             expect(user.experience).toBeUndefined();
             expect(user.education).toBeUndefined();
         }
+    });
+
+    it("requester self-exclusion: a user searching their own username never sees themselves", async () => {
+        // User A's username is aliceprofile
+        const res = await request(app)
+            .get("/api/v1/users/search?q=aliceprofile")
+            .set("Cookie", cookieA);
+
+        expect(res.status).toBe(200);
+        expect(res.body.success).toBe(true);
+
+        const foundSelf = res.body.data.users.some((u) => String(u._id) === String(userAId) || u.username === "aliceprofile");
+        expect(foundSelf).toBe(false);
     });
 
     it("update then GET returns the new data (cache invalidation)", async () => {

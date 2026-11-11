@@ -51,9 +51,14 @@ export const createSingleUpload = (fieldName) => {
     const multerField = (req, res, next) => {
         multerInstance.single(fieldName)(req, res, (err) => {
             if (!err) return next();
-            // Multer emits LIMIT_FILE_SIZE as a MulterError
-            if (err.code === "LIMIT_FILE_SIZE") {
-                return next(new BadRequestError("Image must not exceed 5MB"));
+            if (err instanceof multer.MulterError) {
+                if (err.code === "LIMIT_FILE_SIZE") {
+                    return next(new BadRequestError("Image must not exceed 5MB"));
+                }
+                if (err.code === "LIMIT_UNEXPECTED_FILE") {
+                    return next(new BadRequestError("Unexpected file field"));
+                }
+                return next(new BadRequestError(err.message || "File upload error"));
             }
             return next(err);
         });
