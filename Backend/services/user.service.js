@@ -122,7 +122,7 @@ export class UserService {
      * Adds connection: { status, requestId } to every result via one batched query.
      */
     async searchUsers(query, page, limit, requesterId = null) {
-        const result = await userRepo.search(query, page, limit);
+        const result = await userRepo.search(query, page, limit, requesterId);
         if (requesterId && result.users && result.users.length > 0) {
             const targetIds = result.users.map(u => u._id);
             const connectionMap = await connectionRepo.getRelationshipsBatch(requesterId, targetIds);
