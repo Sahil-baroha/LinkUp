@@ -128,8 +128,7 @@ describe("Phase 5.1c Avatar Upload and Mocked Upload Tests", () => {
             expect(res.body.message).toBe("Image must not exceed 5MB");
         });
 
-        // Reviewer hypothesis tested: Multer emits LIMIT_UNEXPECTED_FILE which currently bubbles to 500
-        it.fails("a wrong field name is handled (expected 4xx, returns 500 in current multer implementation)", async () => {
+        it("a wrong field name is handled", async () => {
             const res = await request(app)
                 .post("/api/v1/posts")
                 .set("Cookie", cookieA)
@@ -138,6 +137,8 @@ describe("Phase 5.1c Avatar Upload and Mocked Upload Tests", () => {
                 .attach("wrongField", validPngBuffer, "test.png");
 
             expect(res.status).toBe(400);
+            expect(res.body.success).toBe(false);
+            expect(res.body.message).toBeTruthy();
         });
 
         it("PATCH post with a new image calls the mock and the old-image deletion", async () => {
