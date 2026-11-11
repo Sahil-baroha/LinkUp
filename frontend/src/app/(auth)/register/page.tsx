@@ -231,7 +231,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="name"
-                className="text-xs font-semibold text-slate-500 uppercase tracking-widest"
+                className="text-xs font-semibold text-slate-500"
               >
                 Full Name
               </Label>
@@ -254,7 +254,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="username"
-                className="text-xs font-semibold text-slate-500 uppercase tracking-widest"
+                className="text-xs font-semibold text-slate-500"
               >
                 Username
               </Label>
@@ -280,7 +280,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="email"
-                className="text-xs font-semibold text-slate-500 uppercase tracking-widest"
+                className="text-xs font-semibold text-slate-500"
               >
                 Email
               </Label>
@@ -303,7 +303,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="password"
-                className="text-xs font-semibold text-slate-500 uppercase tracking-widest"
+                className="text-xs font-semibold text-slate-500"
               >
                 Password
               </Label>
