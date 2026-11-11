@@ -12,7 +12,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Users, Search, User } from "lucide-react";
+import { House, Users, Search, User, PenSquare } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
 import { useUiStore } from "@/store/ui-store";
 import { useIncomingRequests } from "@/hooks/use-connections";
@@ -23,6 +23,7 @@ export function BottomNav() {
   const user = useAuthStore((s) => s.user);
   const setSidebarOpen = useUiStore((s) => s.setSidebarOpen);
   const sidebarOpen = useUiStore((s) => s.sidebarOpen);
+  const setCreatePostModalOpen = useUiStore((s) => s.setCreatePostModalOpen);
   const { data: incomingRequests } = useIncomingRequests();
   const pendingCount = incomingRequests?.length ?? 0;
 
@@ -42,7 +43,7 @@ export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 md:hidden">
       <div className="backdrop-blur-md bg-white/70 border-t border-slate-200/50">
-        <div className="grid grid-cols-4 items-center">
+        <div className="grid grid-cols-5 items-center">
           {/* Home */}
           <NavItem href="/feed" icon={House} label="Home" active={isActive("/feed")} />
 
@@ -62,6 +63,15 @@ export function BottomNav() {
             </span>
             <span className="text-[10px] font-medium">Network</span>
           </Link>
+
+          {/* Post */}
+          <button
+            onClick={() => setCreatePostModalOpen(true)}
+            className="flex flex-col items-center justify-center py-3 gap-1 text-slate-500 hover:text-[#4f46e5] transition-colors"
+          >
+            <PenSquare size={22} strokeWidth={1.5} />
+            <span className="text-[10px] font-medium">Post</span>
+          </button>
 
           {/* Search — controls mobile search in TopNavbar via ui-store */}
           <button
