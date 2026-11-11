@@ -25,21 +25,6 @@ const multerInstance = multer({
 });
 
 /**
- * Middleware: accepts a single image field named "image".
- * Wraps multer to surface errors through the standard Express error handler.
- */
-const multerSingle = (req, res, next) => {
-    multerInstance.single("image")(req, res, (err) => {
-        if (!err) return next();
-        // Multer emits LIMIT_FILE_SIZE as a MulterError
-        if (err.code === "LIMIT_FILE_SIZE") {
-            return next(new BadRequestError("Image must not exceed 5MB"));
-        }
-        return next(err);
-    });
-};
-
-/**
  * M6: Magic-byte MIME validation.
  * Multer's fileFilter trusts the Content-Type header supplied by the client,
  * which can be spoofed (e.g. an SVG with JS disguised as image/jpeg).
@@ -59,7 +44,30 @@ const verifyMimeBytes = async (req, res, next) => {
 };
 
 /**
- * Combined upload middleware: multer (storage + header MIME filter) →
- * magic-byte verification. Use this on any route that accepts image uploads.
+ * Factory for single file upload middleware with magic-byte verification.
+ * @param {string} fieldName - Form field name (e.g. "image" or "avatar")
  */
-export const uploadSingle = [multerSingle, verifyMimeBytes];
+export const createSingleUpload = (fieldName) => {
+    const multerField = (req, res, next) => {
+        multerInstance.single(fieldName)(req, res, (err) => {
+            if (!err) return next();
+            // Multer emits LIMIT_FILE_SIZE as a MulterError
+            if (err.code === "LIMIT_FILE_SIZE") {
+                return next(new BadRequestError("Image must not exceed 5MB"));
+            }
+            return next(err);
+        });
+    };
+    return [multerField, verifyMimeBytes];
+};
+
+/**
+ * Combined upload middleware: multer (storage + header MIME filter) →
+ * magic-byte verification. Use this on any route that accepts image uploads with field "image".
+ */
+export const uploadSingle = createSingleUpload("image");
+
+/**
+ * Combined upload middleware for avatar uploads with field "avatar".
+ */
+export const uploadAvatar = createSingleUpload("avatar");

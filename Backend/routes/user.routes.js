@@ -1,9 +1,10 @@
 import { Router } from "express";
-import { getUserById, updateUserProfile, searchUsers, deleteUser, getSuggestions } from "../controllers/user.controller.js";
+import { getUserById, updateUserProfile, searchUsers, deleteUser, getSuggestions, uploadUserAvatar } from "../controllers/user.controller.js";
 import { validate } from "../middleware/validation.middleware.js";
 import { updateUserSchema, searchUserSchema, suggestionsSchema } from "../validators/user.validator.js";
 import { authenticate } from "../middleware/auth.middleware.js";
-import { searchLimiter, readLimiter } from "../middleware/rateLimiter.middleware.js";
+import { searchLimiter, readLimiter, writeLimiter } from "../middleware/rateLimiter.middleware.js";
+import { uploadAvatar } from "../middleware/upload.middleware.js";
 
 // C1: Import the ObjectId param schema — reused from post.validator.js
 // (same /^[a-f\d]{24}$/i pattern, avoids duplicating the definition)
@@ -27,6 +28,9 @@ router.get("/suggestions", authenticate, readLimiter, validate(suggestionsSchema
 
 // GET /users/:id — C1: validate :id is a valid ObjectId before it reaches Mongoose
 router.get("/:id", authenticate, validate(userIdParamSchema), getUserById);
+
+// PUT /users/:id/avatar — upload avatar image for user profile
+router.put("/:id/avatar", authenticate, writeLimiter, validate(userIdParamSchema), uploadAvatar, uploadUserAvatar);
 
 // PATCH /users/:id — restricted to allowed fields
 router.patch("/:id", authenticate, validate(userIdParamSchema), validate(updateUserSchema), updateUserProfile);

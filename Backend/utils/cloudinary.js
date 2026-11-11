@@ -15,17 +15,23 @@ cloudinary.config({
  * @param {Buffer} buffer   - The file buffer from multer memoryStorage
  * @param {string} mimetype - MIME type of the file for format hint
  * @param {string} folder   - Cloudinary folder path (e.g. "linkup/posts")
+ * @param {Array<object>} [transformation] - Optional Cloudinary transformations
  * @returns {Promise<{ url: string, publicId: string }>}
  */
-export const uploadToCloudinary = (buffer, mimetype, folder = "linkup/posts") => {
+export const uploadToCloudinary = (buffer, mimetype, folder = "linkup/posts", transformation = undefined) => {
     return new Promise((resolve, reject) => {
+        const uploadOptions = {
+            folder,
+            resource_type: "image",
+            // Derive format from MIME to avoid Cloudinary guessing wrong
+            format: mimetype.split("/")[1],
+        };
+        if (transformation) {
+            uploadOptions.transformation = transformation;
+        }
+
         const stream = cloudinary.uploader.upload_stream(
-            {
-                folder,
-                resource_type: "image",
-                // Derive format from MIME to avoid Cloudinary guessing wrong
-                format: mimetype.split("/")[1],
-            },
+            uploadOptions,
             (error, result) => {
                 if (error) return reject(error);
                 resolve({ url: result.secure_url, publicId: result.public_id });
