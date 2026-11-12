@@ -18,8 +18,8 @@ export function cn(...inputs: ClassValue[]) {
  *
  * Examples:
  *   "Sarah Jenkins"      → "SJ"
- *   "Marcus"             → "M"
- *   "Elena Rodriguez"    → "ER"
+ *   "Alex"               → "A"
+ *   "Dev User"           → "DU"
  *   ""                   → "?"
  */
 export function getInitials(name: string): string {
