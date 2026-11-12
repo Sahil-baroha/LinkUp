@@ -22,6 +22,7 @@ import { Bell, Search, LogOut, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
 import { logout } from "@/lib/api";
+import { useIncomingRequests } from "@/hooks/use-connections";
 import { Avatar } from "@/components/shared/avatar";
 import { UserSearch } from "@/components/features/connections/user-search";
 import {
@@ -43,6 +44,17 @@ export function TopNavbar() {
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+
+  const { data: incomingRequests } = useIncomingRequests({
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  const incomingCount = incomingRequests?.length ?? 0;
+  const badgeText = incomingCount > 9 ? "9+" : incomingCount.toString();
+  const bellAriaLabel =
+    incomingCount > 0
+      ? `Notifications, ${incomingCount} incoming connection request${incomingCount > 1 ? "s" : ""}`
+      : "Notifications";
 
   async function handleSignOut() {
     try {
@@ -88,13 +100,19 @@ export function TopNavbar() {
               <Search size={18} strokeWidth={1.5} />
             </button>
 
-            {/* Notification bell — placeholder, non-interactive */}
-            <button
-              aria-label="Notifications"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition-colors"
+            {/* Notification bell */}
+            <Link
+              href="/connections?tab=requests"
+              aria-label={bellAriaLabel}
+              className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition-colors"
             >
               <Bell size={18} strokeWidth={1.5} />
-            </button>
+              {incomingCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white shadow-xs">
+                  {badgeText}
+                </span>
+              )}
+            </Link>
 
             {/* User avatar + dropdown — only rendered after hydration */}
             {user ? (

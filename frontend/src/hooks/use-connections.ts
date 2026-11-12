@@ -44,10 +44,15 @@ export function useConnections() {
   });
 }
 
-export function useIncomingRequests() {
+export function useIncomingRequests(options?: {
+  staleTime?: number;
+  refetchOnWindowFocus?: boolean;
+}) {
   return useQuery({
     queryKey: INCOMING_REQUESTS_KEY,
     queryFn: getIncomingRequests,
+    staleTime: options?.staleTime ?? 60_000,
+    refetchOnWindowFocus: options?.refetchOnWindowFocus ?? true,
   });
 }
 
