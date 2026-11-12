@@ -1,31 +1,44 @@
 "use client";
 
 /**
- * profile-header.tsx — User profile cover + avatar + info + connection action
+ * profile-header.tsx — User profile cover + avatar + info + connection actions
  *
- * Props: user, isOwnProfile
- * Cover: deterministic gradient seeded from user._id via generateAvatarColor
- * Avatar: xl, positioned overlapping cover bottom edge
- * Connection states: none, sent, received, connected (read from useConnections hooks)
+ * Requirements:
+ * - Cover band (gradient, no image)
+ * - UserAvatar xl
+ * - name, headline, location, joined date, actions
+ * - Actions based on connection.status:
+ *   - self -> "Edit profile" link to /profile/edit
+ *   - none -> Connect (useSendRequest)
+ *   - pending_sent -> disabled "Pending" + Withdraw (requestId)
+ *   - pending_received -> Accept and Decline (requestId)
+ *   - connected -> "Connected" + Remove with a confirm dialog
+ * - Invalidate user query after each mutation
  */
 
 import { useState } from "react";
-import { Calendar } from "lucide-react";
+import Link from "next/link";
+import { Calendar, MapPin, Check } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
+import { toast } from "sonner";
 import {
-  useConnections,
-  useIncomingRequests,
-  useSentRequests,
   useSendRequest,
   useWithdrawRequest,
   useAcceptRequest,
   useRejectRequest,
   useRemoveConnection,
 } from "@/hooks/use-connections";
-import { Avatar } from "@/components/shared/avatar";
+import { UserAvatar } from "@/components/shared";
 import { Spinner } from "@/components/shared/spinner";
-import { EditProfileModal } from "./edit-profile-modal";
-import { formatRelativeTime, generateAvatarColor, cn } from "@/lib/utils";
-import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { generateAvatarColor, formatJoinedDate, cn } from "@/lib/utils";
 import type { User } from "@/types";
 
 interface ProfileHeaderProps {
@@ -33,7 +46,6 @@ interface ProfileHeaderProps {
   isOwnProfile: boolean;
 }
 
-// Cover gradient map from generateAvatarColor palette
 const COVER_GRADIENTS: Record<string, string> = {
   "bg-indigo-100": "from-indigo-100 to-indigo-200",
   "bg-slate-100":  "from-slate-100 to-slate-200",
@@ -43,13 +55,12 @@ const COVER_GRADIENTS: Record<string, string> = {
 };
 
 export function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps) {
-  const [editOpen, setEditOpen] = useState(false);
   const colors = generateAvatarColor(user._id);
   const coverGradient = COVER_GRADIENTS[colors.bg] ?? "from-slate-100 to-slate-200";
 
   return (
     <div className="relative overflow-visible rounded-xl border border-slate-200/50 bg-white">
-      {/* Cover area */}
+      {/* Cover band (gradient, no image) */}
       <div
         className={cn(
           "h-40 rounded-t-xl bg-gradient-to-br",
@@ -57,10 +68,10 @@ export function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps) {
         )}
       />
 
-      {/* Overlapping avatar */}
+      {/* Overlapping UserAvatar xl */}
       <div className="absolute left-6 top-[100px]">
         <div className="rounded-full ring-4 ring-white">
-          <Avatar
+          <UserAvatar
             src={user.profilePicture}
             name={user.name}
             size="xl"
@@ -71,45 +82,60 @@ export function ProfileHeader({ user, isOwnProfile }: ProfileHeaderProps) {
 
       {/* Content area */}
       <div className="px-6 pb-6 pt-14">
-        <div className="flex items-start justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
           {/* User info */}
-          <div className="space-y-1">
-            <h1 className="text-xl font-semibold text-slate-900">{user.name}</h1>
-            <p className="text-sm text-slate-400">@{user.username}</p>
-            <div className="flex items-center gap-1.5 text-sm text-slate-400">
-              <Calendar size={14} strokeWidth={1.5} />
-              <span>Joined {formatRelativeTime(user.createdAt)}</span>
+          <div className="space-y-1.5 min-w-0">
+            <div>
+              <h1 className="text-xl font-semibold text-slate-900 truncate">{user.name}</h1>
+              <p className="text-sm text-slate-400 truncate">@{user.username}</p>
+            </div>
+
+            {user.headline && (
+              <p className="text-sm text-slate-700 font-medium whitespace-pre-line leading-relaxed">
+                {user.headline}
+              </p>
+            )}
+
+            <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 pt-0.5">
+              {user.location && (
+                <div className="flex items-center gap-1">
+                  <MapPin size={13} className="text-slate-400" />
+                  <span>{user.location}</span>
+                </div>
+              )}
+              {user.createdAt && (
+                <div className="flex items-center gap-1">
+                  <Calendar size={13} className="text-slate-400" />
+                  <span>Joined {formatJoinedDate(user.createdAt)}</span>
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Action button */}
-          <div className="mt-1">
+          {/* Action slot */}
+          <div className="shrink-0 mt-1 sm:mt-0">
             {isOwnProfile ? (
-              <button
-                onClick={() => setEditOpen(true)}
-                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors"
+              <Link
+                href="/profile/edit"
+                className="inline-flex items-center justify-center rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 transition-colors"
               >
-                Edit Profile
-              </button>
+                Edit profile
+              </Link>
             ) : (
-              <ConnectionActionButton userId={user._id} />
+              <ConnectionActions user={user} />
             )}
           </div>
         </div>
       </div>
-
-      {/* Edit Profile Modal */}
-      <EditProfileModal open={editOpen} onOpenChange={setEditOpen} user={user} />
     </div>
   );
 }
 
-// ─── Inline sub-component ─────────────────────────────────────────────────────
+// ─── Connection actions sub-component ─────────────────────────────────────────
 
-function ConnectionActionButton({ userId }: { userId: string }) {
-  const { data: connections } = useConnections();
-  const { data: incoming } = useIncomingRequests();
-  const { data: sent } = useSentRequests();
+function ConnectionActions({ user }: { user: User }) {
+  const queryClient = useQueryClient();
+  const [removeDialogOpen, setRemoveDialogOpen] = useState(false);
 
   const sendMutation = useSendRequest();
   const withdrawMutation = useWithdrawRequest();
@@ -117,88 +143,167 @@ function ConnectionActionButton({ userId }: { userId: string }) {
   const rejectMutation = useRejectRequest();
   const removeMutation = useRemoveConnection();
 
-  const anyPending =
+  const isMutating =
     sendMutation.isPending ||
     withdrawMutation.isPending ||
     acceptMutation.isPending ||
     rejectMutation.isPending ||
     removeMutation.isPending;
 
-  // Determine connection state
-  const connected = connections?.find((c) => c.user._id === userId);
-  const sentRequest = sent?.find((r) => r.receiverId._id === userId);
-  const receivedRequest = incoming?.find((r) => r.senderId._id === userId);
+  const status = user.connection?.status ?? "none";
+  const requestId = user.connection?.requestId;
 
-  if (connected) {
-    return (
-      <button
-        onClick={() =>
-          removeMutation.mutate(userId, {
-            onSuccess: () => toast.success("Connection removed"),
-          })
-        }
-        disabled={anyPending}
-        className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-red-50 hover:text-red-500 hover:border-red-200 transition-colors disabled:opacity-50"
-      >
-        {removeMutation.isPending && <Spinner size="sm" />}
-        Remove Connection
-      </button>
-    );
-  }
+  const invalidateUser = () => {
+    queryClient.invalidateQueries({ queryKey: ["users", user._id] });
+  };
 
-  if (receivedRequest) {
+  // 1. Connected
+  if (status === "connected") {
     return (
-      <div className="flex gap-2">
+      <div className="flex items-center gap-2">
+        <span className="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50 px-3 py-1.5 text-sm font-medium text-slate-700">
+          <Check size={14} className="text-emerald-600" />
+          Connected
+        </span>
         <button
-          onClick={() =>
-            acceptMutation.mutate(receivedRequest._id, {
-              onSuccess: () => toast.success("Connection accepted"),
-            })
-          }
-          disabled={anyPending}
-          className="flex items-center gap-2 rounded-lg bg-[#4f46e5] px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+          onClick={() => setRemoveDialogOpen(true)}
+          disabled={isMutating}
+          className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-500 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors disabled:opacity-50"
         >
-          {acceptMutation.isPending && <Spinner size="sm" />}
-          Accept
+          Remove
         </button>
-        <button
-          onClick={() => rejectMutation.mutate(receivedRequest._id)}
-          disabled={anyPending}
-          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
-        >
-          Reject
-        </button>
+
+        <Dialog open={removeDialogOpen} onOpenChange={setRemoveDialogOpen}>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Remove Connection</DialogTitle>
+              <DialogDescription>
+                Are you sure you want to remove {user.name} from your connections?
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRemoveDialogOpen(false)}
+                disabled={removeMutation.isPending}
+                className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-600 hover:bg-slate-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  removeMutation.mutate(user._id, {
+                    onSuccess: () => {
+                      toast.success("Connection removed");
+                      invalidateUser();
+                      setRemoveDialogOpen(false);
+                    },
+                    onError: () => toast.error("Failed to remove connection"),
+                  });
+                }}
+                disabled={removeMutation.isPending}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50 transition-colors"
+              >
+                {removeMutation.isPending && <Spinner size="sm" />}
+                Confirm Remove
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
 
-  if (sentRequest) {
+  // 2. Pending Sent (waiting for target response)
+  if (status === "pending_sent") {
     return (
-      <button
-        onClick={() =>
-          withdrawMutation.mutate(sentRequest._id, {
-            onSuccess: () => toast.success("Request withdrawn"),
-          })
-        }
-        disabled={anyPending}
-        className="flex items-center gap-2 rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-400 hover:bg-slate-50 transition-colors disabled:opacity-50"
-      >
-        {withdrawMutation.isPending && <Spinner size="sm" />}
-        Withdraw
-      </button>
+      <div className="flex items-center gap-2">
+        <button
+          disabled
+          className="rounded-lg border border-slate-200 bg-slate-50 px-3.5 py-1.5 text-sm font-medium text-slate-400 cursor-not-allowed"
+        >
+          Pending
+        </button>
+        {requestId && (
+          <button
+            onClick={() => {
+              withdrawMutation.mutate(requestId, {
+                onSuccess: () => {
+                  toast.success("Request withdrawn");
+                  invalidateUser();
+                },
+                onError: () => toast.error("Failed to withdraw request"),
+              });
+            }}
+            disabled={isMutating}
+            className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 px-3.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+          >
+            {withdrawMutation.isPending && <Spinner size="sm" />}
+            Withdraw
+          </button>
+        )}
+      </div>
     );
   }
 
+  // 3. Pending Received (waiting for current user response)
+  if (status === "pending_received") {
+    return (
+      <div className="flex items-center gap-2">
+        {requestId && (
+          <>
+            <button
+              onClick={() => {
+                acceptMutation.mutate(requestId, {
+                  onSuccess: () => {
+                    toast.success("Connection accepted");
+                    invalidateUser();
+                  },
+                  onError: () => toast.error("Failed to accept connection"),
+                });
+              }}
+              disabled={isMutating}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-[#4f46e5] px-3.5 py-1.5 text-sm font-medium text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+            >
+              {acceptMutation.isPending && <Spinner size="sm" />}
+              Accept
+            </button>
+            <button
+              onClick={() => {
+                rejectMutation.mutate(requestId, {
+                  onSuccess: () => {
+                    toast.success("Request declined");
+                    invalidateUser();
+                  },
+                  onError: () => toast.error("Failed to decline request"),
+                });
+              }}
+              disabled={isMutating}
+              className="rounded-lg border border-slate-200 px-3.5 py-1.5 text-sm font-medium text-slate-600 hover:bg-slate-50 transition-colors disabled:opacity-50"
+            >
+              Decline
+            </button>
+          </>
+        )}
+      </div>
+    );
+  }
+
+  // 4. None (no relationship)
   return (
     <button
-      onClick={() =>
-        sendMutation.mutate(userId, {
-          onSuccess: () => toast.success("Connection request sent"),
+      onClick={() => {
+        sendMutation.mutate(user._id, {
+          onSuccess: () => {
+            toast.success("Connection request sent");
+            invalidateUser();
+          },
           onError: () => toast.error("Failed to send request"),
-        })
-      }
-      disabled={anyPending}
-      className="flex items-center gap-2 rounded-lg bg-[#0f172a] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
+        });
+      }}
+      disabled={isMutating}
+      className="inline-flex items-center gap-1.5 rounded-lg bg-[#0f172a] px-4 py-2 text-sm font-medium text-white hover:opacity-90 transition-opacity disabled:opacity-50"
     >
       {sendMutation.isPending && <Spinner size="sm" />}
       Connect

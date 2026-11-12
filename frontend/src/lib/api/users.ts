@@ -22,7 +22,7 @@ export async function getUserById(id: string): Promise<User> {
 
 /**
  * PATCH /users/:id
- * Updates only username and/or profilePicture.
+ * Updates allowed profile fields.
  * Ownership enforced server-side — users can only update their own profile.
  */
 export async function updateUser(
@@ -30,6 +30,21 @@ export async function updateUser(
   data: UpdateUserPayload
 ): Promise<User> {
   const res = await apiClient.patch<ApiResponse<User>>(`/users/${id}`, data);
+  return res.data.data;
+}
+
+/**
+ * PUT /users/:id/avatar
+ * Uploads user avatar image via multipart/form-data.
+ * Ownership enforced server-side — users can only update their own avatar.
+ */
+export async function updateAvatar(
+  userId: string,
+  file: File
+): Promise<User> {
+  const formData = new FormData();
+  formData.append("avatar", file);
+  const res = await apiClient.put<ApiResponse<User>>(`/users/${userId}/avatar`, formData);
   return res.data.data;
 }
 

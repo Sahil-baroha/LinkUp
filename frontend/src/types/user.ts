@@ -11,6 +11,32 @@
  * NOTE: `password` is NEVER present in any API response.
  */
 
+// ─── Sub-document types ───────────────────────────────────────────────────
+
+export interface ExperienceItem {
+  title: string;
+  company: string;
+  startDate: string; // "YYYY-MM" format
+  endDate?: string | null; // "YYYY-MM" format or null
+  current?: boolean;
+  description?: string;
+}
+
+export interface EducationItem {
+  school: string;
+  degree?: string;
+  field?: string;
+  startYear: number;
+  endYear?: number | null;
+}
+
+export type RelationshipStatus = "none" | "pending_sent" | "pending_received" | "connected";
+
+export interface ConnectionRelationship {
+  status: RelationshipStatus;
+  requestId: string | null;
+}
+
 // ─── Core User ─────────────────────────────────────────────────────────────
 
 /** Full user object as returned by the API (no password field ever). */
@@ -18,9 +44,16 @@ export interface User {
   _id: string;
   name: string;
   username: string;
-  email: string;
+  email?: string; // Only present for the user themselves
   profilePicture: string; // Cloudinary URL or "" (never null — default is '')
-  active: boolean;
+  headline?: string;
+  about?: string;
+  location?: string;
+  skills?: string[];
+  experience?: ExperienceItem[];
+  education?: EducationItem[];
+  connection?: ConnectionRelationship; // Only present when viewing another user's profile
+  active?: boolean;
   createdAt: string;      // ISO 8601 date string (Mongoose timestamps)
   updatedAt: string;
 }
@@ -73,9 +106,16 @@ export interface UserSearchResult {
 
 /**
  * Body for PATCH /users/:id
- * Source: validators/user.validator.js → updateUserSchema (username, profilePicture only)
+ * Source: validators/user.validator.js → updateUserSchema
  */
 export interface UpdateUserPayload {
+  name?: string;
   username?: string;
   profilePicture?: string; // Must be a valid URL string
+  headline?: string;
+  about?: string;
+  location?: string;
+  skills?: string[];
+  experience?: ExperienceItem[];
+  education?: EducationItem[];
 }
