@@ -28,9 +28,15 @@ interface LikeButtonProps {
   postId: string;
   initialLiked: boolean;
   initialCount: number;
+  onCountClick?: () => void;
 }
 
-export function LikeButton({ postId, initialLiked, initialCount }: LikeButtonProps) {
+export function LikeButton({
+  postId,
+  initialLiked,
+  initialCount,
+  onCountClick,
+}: LikeButtonProps) {
   const queryClient = useQueryClient();
   const toggleMutation = useToggleLike(postId);
   const [animating, setAnimating] = useState(false);
@@ -55,33 +61,54 @@ export function LikeButton({ postId, initialLiked, initialCount }: LikeButtonPro
   }
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={toggleMutation.isPending}
-      aria-label={liked ? "Unlike" : "Like"}
-      className="group flex items-center gap-1.5 text-sm transition-colors hover:text-indigo-600 disabled:cursor-not-allowed"
-    >
-      {toggleMutation.isPending ? (
-        <Spinner size="sm" />
-      ) : (
-        <motion.span
-          animate={animating ? { scale: [1, 1.4, 0.9, 1] } : {}}
-          transition={{ duration: 0.4, ease: "easeOut" }}
+    <div className="flex items-center gap-1.5 text-sm">
+      <button
+        type="button"
+        onClick={handleClick}
+        disabled={toggleMutation.isPending}
+        aria-label={liked ? "Unlike" : "Like"}
+        className="group flex items-center transition-colors hover:text-indigo-600 disabled:cursor-not-allowed"
+      >
+        {toggleMutation.isPending ? (
+          <Spinner size="sm" />
+        ) : (
+          <motion.span
+            animate={animating ? { scale: [1, 1.4, 0.9, 1] } : {}}
+            transition={{ duration: 0.4, ease: "easeOut" }}
+            className={cn(
+              "transition-transform group-hover:scale-110",
+              liked ? "text-indigo-600" : "text-slate-500"
+            )}
+          >
+            <ThumbsUp
+              size={16}
+              strokeWidth={1.5}
+              className={cn(liked && "fill-indigo-600")}
+            />
+          </motion.span>
+        )}
+      </button>
+
+      {onCountClick && count > 0 ? (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+            onCountClick();
+          }}
           className={cn(
-            "transition-transform group-hover:scale-110",
+            "tabular-nums transition-colors hover:underline hover:text-indigo-600 focus:outline-none cursor-pointer",
             liked ? "text-indigo-600" : "text-slate-500"
           )}
+          aria-label={`${count} likes`}
         >
-          <ThumbsUp
-            size={16}
-            strokeWidth={1.5}
-            className={cn(liked && "fill-indigo-600")}
-          />
-        </motion.span>
+          {count}
+        </button>
+      ) : (
+        <span className={cn("tabular-nums", liked ? "text-indigo-600" : "text-slate-500")}>
+          {count}
+        </span>
       )}
-      <span className={cn("tabular-nums", liked ? "text-indigo-600" : "text-slate-500")}>
-        {count}
-      </span>
-    </button>
+    </div>
   );
 }
