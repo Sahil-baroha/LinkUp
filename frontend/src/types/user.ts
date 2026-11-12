@@ -109,6 +109,7 @@ export interface ConnectionUser {
   name: string;
   username: string;
   profilePicture: string;
+  headline?: string;
 }
 
 // ─── Search response ────────────────────────────────────────────────────────
