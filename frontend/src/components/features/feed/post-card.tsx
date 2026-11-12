@@ -19,7 +19,7 @@ import { UserAvatar } from "@/components/shared";
 import { LikeButton } from "./like-button";
 import { PostEditForm } from "./post-edit-form";
 import { PostDeleteDialog } from "./post-delete-dialog";
-// LikesDialog will be mounted in Q3
+import { LikesDialog } from "./likes-dialog";
 import type { Post, FeedPost } from "@/types";
 import { cn, formatRelativeTime } from "@/lib/utils";
 import {
@@ -285,6 +285,14 @@ export function PostCard({ post, showFullBody = false }: PostCardProps) {
         onOpenChange={setDeleteConfirmOpen}
         onConfirm={handleDelete}
         isPending={deleteMutation.isPending}
+      />
+
+      {/* Likes dialog */}
+      <LikesDialog
+        postId={post._id}
+        likeCount={likeCount}
+        open={likesDialogOpen}
+        onOpenChange={setLikesDialogOpen}
       />
     </>
   );
