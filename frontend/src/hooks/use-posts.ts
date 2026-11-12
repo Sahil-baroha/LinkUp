@@ -20,6 +20,7 @@
  *      race-condition count drift.
  */
 
+import * as React from "react";
 import {
   useQuery,
   useMutation,
@@ -33,9 +34,10 @@ import {
   deletePost,
   updatePost,
   toggleLike,
+  getPostLikes,
 } from "@/lib/api";
 import { FEED_QUERY_KEY } from "./use-feed";
-import type { Post, FeedPost, FeedResponse } from "@/types";
+import type { Post, FeedPost, FeedResponse, LikesResponse } from "@/types";
 
 // ─── Queries ──────────────────────────────────────────────────────────────────
 
@@ -235,4 +237,67 @@ export function useToggleLike(postId: string) {
     // onSettled: intentionally omitted — no invalidation needed.
     // The optimistic update + onSuccess server correction IS the final state.
   });
+}
+
+// ─── Post Likes (paginated) ───────────────────────────────────────────────────
+
+/**
+ * usePostLikes — fetches paginated likes for a post with a "load more" pattern.
+ *
+ * Uses useState + multiple useQuery calls pattern (simpler than useInfiniteQuery
+ * for a dialog, matches the existing hook style in this file).
+ *
+ * Returns all fetched users merged, plus a loadMore function and hasMore flag.
+ * The first page is fetched automatically when enabled=true.
+ * Subsequent pages are fetched on demand via loadMore().
+ */
+export function usePostLikes(postId: string, enabled: boolean) {
+  const [page, setPage] = React.useState(1);
+  const [allUsers, setAllUsers] = React.useState<LikesResponse["users"]>([]);
+  const [totalCount, setTotalCount] = React.useState(0);
+  const LIMIT = 20;
+
+  const query = useQuery({
+    queryKey: ["posts", postId, "likes", page],
+    queryFn: () => getPostLikes(postId, page, LIMIT),
+    enabled: enabled && !!postId,
+  });
+
+  // Accumulate pages into allUsers
+  React.useEffect(() => {
+    if (query.data) {
+      setTotalCount(query.data.likeCount);
+      if (page === 1) {
+        // Reset on first page (dialog re-open)
+        setAllUsers(query.data.users);
+      } else {
+        setAllUsers((prev) => [...prev, ...query.data!.users]);
+      }
+    }
+  }, [query.data, page]);
+
+  // Reset when dialog closes
+  React.useEffect(() => {
+    if (!enabled) {
+      setPage(1);
+      setAllUsers([]);
+    }
+  }, [enabled]);
+
+  const hasMore = allUsers.length < totalCount;
+
+  function loadMore() {
+    if (!query.isFetching && hasMore) {
+      setPage((p) => p + 1);
+    }
+  }
+
+  return {
+    users: allUsers,
+    likeCount: totalCount,
+    isLoading: query.isLoading,
+    isFetchingMore: query.isFetching && page > 1,
+    hasMore,
+    loadMore,
+  };
 }

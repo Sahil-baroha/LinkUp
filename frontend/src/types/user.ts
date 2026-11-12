@@ -71,11 +71,33 @@ export interface User {
  *   - like.repository.js  const USER_PROJECTION   = "username profilePicture"
  *
  * _id is always included by Mongoose populate even when not explicitly selected.
+ *
+ * NOTE: `name` and `headline` are optional — backend AUTHOR_PROJECTION does NOT
+ * project them on post/comment/like queries. They may be absent in those contexts.
  */
 export interface PostAuthor {
   _id: string;
   username: string;
   profilePicture: string;
+  /** Only present if the backend projection includes "name" (e.g. suggestions) */
+  name?: string;
+  /** Only present if the backend projection includes "headline" (e.g. suggestions) */
+  headline?: string;
+}
+
+// ─── Suggestion user ─────────────────────────────────────────────────────────
+
+/**
+ * User shape returned by GET /users/suggestions
+ * Source: user.service.js → getSuggestions() returns {_id, name, username, profilePicture, headline, mutualCount}
+ */
+export interface SuggestionUser {
+  _id: string;
+  name: string;
+  username: string;
+  profilePicture: string;
+  headline?: string;
+  mutualCount: number;
 }
 
 /**

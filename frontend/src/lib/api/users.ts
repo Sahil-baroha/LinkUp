@@ -9,7 +9,7 @@
 
 import apiClient from "./client";
 import type { ApiResponse } from "@/types";
-import type { User, UserSearchResult, UpdateUserPayload } from "@/types";
+import type { User, UserSearchResult, UpdateUserPayload, SuggestionUser } from "@/types";
 
 /**
  * GET /users/:id
@@ -71,4 +71,17 @@ export async function searchUsers(
  */
 export async function deactivateAccount(id: string): Promise<void> {
   await apiClient.delete(`/users/${id}`);
+}
+
+/**
+ * GET /users/suggestions?limit=N
+ * Returns connection suggestions for the current user.
+ * Shape: [{_id, name, username, profilePicture, headline, mutualCount}]
+ * Source: user.service.js → getSuggestions()
+ */
+export async function getSuggestions(limit: number): Promise<SuggestionUser[]> {
+  const res = await apiClient.get<ApiResponse<SuggestionUser[]>>("/users/suggestions", {
+    params: { limit },
+  });
+  return res.data.data;
 }

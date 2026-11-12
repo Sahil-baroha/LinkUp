@@ -12,7 +12,7 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUserById, updateUser, updateAvatar } from "@/lib/api";
+import { getUserById, updateUser, updateAvatar, getSuggestions } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
 import type { UpdateUserPayload } from "@/types";
 
@@ -57,5 +57,20 @@ export function useUpdateAvatar(userId: string) {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
       useAuthStore.getState().setUser(updatedUser);
     },
+  });
+}
+
+// ─── Suggestions query ────────────────────────────────────────────────────────
+
+/**
+ * useSuggestions — fetches connection suggestions for the current user.
+ * Cache key: ['users', 'suggestions', limit]
+ * Stale time: 2 minutes (matches backend 120 s cache TTL).
+ */
+export function useSuggestions(limit: number) {
+  return useQuery({
+    queryKey: ["users", "suggestions", limit],
+    queryFn: () => getSuggestions(limit),
+    staleTime: 2 * 60 * 1000, // 2 min — matches backend cache TTL
   });
 }
