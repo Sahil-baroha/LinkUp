@@ -73,4 +73,35 @@ export function formatRelativeTime(date: string | Date): string {
   }
 }
 
+// ─── Static Month Date Helpers (No Date objects) ──────────────────────────
+
+const MONTH_NAMES = [
+  "Jan", "Feb", "Mar", "Apr", "May", "Jun",
+  "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"
+];
+
+export function formatYearMonth(dateStr?: string | null): string {
+  if (!dateStr) return "";
+  const parts = dateStr.split("-");
+  if (parts.length < 2) return dateStr;
+  const year = parts[0];
+  const monthIdx = parseInt(parts[1], 10) - 1;
+  const monthName = MONTH_NAMES[monthIdx] ?? parts[1];
+  return `${monthName} ${year}`;
+}
+
+export function formatDateRange(startDate: string, endDate?: string | null, current?: boolean): string {
+  const start = formatYearMonth(startDate);
+  if (current) return `${start} - Present`;
+  if (!endDate) return start;
+  const end = formatYearMonth(endDate);
+  return `${start} - ${end}`;
+}
+
+export function formatJoinedDate(isoString?: string | null): string {
+  if (!isoString) return "";
+  const prefix = isoString.slice(0, 7);
+  return formatYearMonth(prefix);
+}
+
 export { mapServerErrors } from "./errors";

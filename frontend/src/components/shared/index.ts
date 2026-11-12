@@ -9,7 +9,7 @@
  */
 
 export { Container }    from "./container";
-export { Avatar }       from "./avatar";
+export { Avatar, Avatar as UserAvatar } from "./avatar";
 export { GlassCard }    from "./glass-card";
 export { Spinner, FullPageSpinner } from "./spinner";
 export { EmptyState }   from "./empty-state";
