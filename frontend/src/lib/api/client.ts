@@ -17,6 +17,12 @@
 import axios from "axios";
 import { toast } from "sonner";
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    skipRateLimitToast?: boolean;
+  }
+}
+
 const apiClient = axios.create({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api/v1`,
   withCredentials: true, // Required — HttpOnly cookies won't send without this
@@ -24,6 +30,25 @@ const apiClient = axios.create({
     "Content-Type": "application/json",
   },
 });
+
+let lastRateLimitToastTime = 0;
+const RATE_LIMIT_TOAST_COOLDOWN_MS = 2000;
+
+function showRateLimitToast(retryAfterHeader?: string | number) {
+  const now = Date.now();
+  if (now - lastRateLimitToastTime < RATE_LIMIT_TOAST_COOLDOWN_MS) {
+    return;
+  }
+  lastRateLimitToastTime = now;
+
+  const seconds = parseInt(String(retryAfterHeader), 10);
+  const message =
+    Number.isFinite(seconds) && seconds > 0
+      ? `Too many requests. Try again in ${seconds} seconds`
+      : "Too many requests. Try again later";
+
+  toast.error(message, { id: "rate-limit-429" });
+}
 
 // ─── Response Interceptor ───────────────────────────────────────────────────
 
@@ -51,6 +76,15 @@ apiClient.interceptors.response.use(
         toast.error("Your session has expired. Please sign in again.");
         // Hard navigate so middleware re-evaluates cookie state cleanly
         window.location.href = `/login?from=${encodeURIComponent(currentPath)}`;
+      }
+    }
+
+    if (status === 429 && typeof window !== "undefined") {
+      if (!error.config?.skipRateLimitToast) {
+        const retryAfter =
+          error.response?.headers?.["retry-after"] ??
+          error.response?.headers?.["Retry-After"];
+        showRateLimitToast(retryAfter);
       }
     }
 

@@ -56,10 +56,12 @@ export async function updateAvatar(
 export async function searchUsers(
   q: string,
   page = 1,
-  limit = 10
+  limit = 10,
+  config?: { skipRateLimitToast?: boolean }
 ): Promise<UserSearchResult> {
   const res = await apiClient.get<ApiResponse<UserSearchResult>>("/users/search", {
     params: { q, page, limit },
+    skipRateLimitToast: config?.skipRateLimitToast,
   });
   return res.data.data;
 }

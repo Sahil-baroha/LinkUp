@@ -18,11 +18,11 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
 import { Bell, Search, LogOut, User as UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
 import { logout } from "@/lib/api";
+import { useIncomingRequests } from "@/hooks/use-connections";
 import { Avatar } from "@/components/shared/avatar";
 import { UserSearch } from "@/components/features/connections/user-search";
 import {
@@ -32,12 +32,29 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 export function TopNavbar() {
   const router = useRouter();
   const user = useAuthStore((s) => s.user);
   const clearAuth = useAuthStore((s) => s.clearAuth);
-  const [mobileSearchOpen_, setMobileSearchOpen] = useState(false);
+  const [mobileSearchOpen, setMobileSearchOpen] = useState(false);
+
+  const { data: incomingRequests } = useIncomingRequests({
+    staleTime: 60_000,
+    refetchOnWindowFocus: true,
+  });
+  const incomingCount = incomingRequests?.length ?? 0;
+  const badgeText = incomingCount > 9 ? "9+" : incomingCount.toString();
+  const bellAriaLabel =
+    incomingCount > 0
+      ? `Notifications, ${incomingCount} incoming connection request${incomingCount > 1 ? "s" : ""}`
+      : "Notifications";
 
   async function handleSignOut() {
     try {
@@ -75,20 +92,27 @@ export function TopNavbar() {
           <div className="flex items-center gap-2">
             {/* Mobile search toggle */}
             <button
-              onClick={() => setMobileSearchOpen((p) => !p)}
-              aria-label="Toggle search"
+              type="button"
+              onClick={() => setMobileSearchOpen(true)}
+              aria-label="Search"
               className="md:hidden flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition-colors"
             >
               <Search size={18} strokeWidth={1.5} />
             </button>
 
-            {/* Notification bell — placeholder, non-interactive */}
-            <button
-              aria-label="Notifications"
-              className="flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition-colors"
+            {/* Notification bell */}
+            <Link
+              href="/connections?tab=requests"
+              aria-label={bellAriaLabel}
+              className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 transition-colors"
             >
               <Bell size={18} strokeWidth={1.5} />
-            </button>
+              {incomingCount > 0 && (
+                <span className="absolute -top-0.5 -right-0.5 flex h-4 min-w-[16px] items-center justify-center rounded-full bg-indigo-600 px-1 text-[10px] font-bold text-white shadow-xs">
+                  {badgeText}
+                </span>
+              )}
+            </Link>
 
             {/* User avatar + dropdown — only rendered after hydration */}
             {user ? (
@@ -134,23 +158,19 @@ export function TopNavbar() {
         </div>
       </div>
 
-      {/* ── Mobile search slide-down ──────────────────────────── */}
-      <AnimatePresence>
-        {mobileSearchOpen_ && (
-          <motion.div
-            key="mobile-search"
-            initial={{ height: 0, opacity: 0 }}
-            animate={{ height: "auto", opacity: 1 }}
-            exit={{ height: 0, opacity: 0 }}
-            transition={{ duration: 0.2, ease: "easeInOut" }}
-            className="overflow-hidden backdrop-blur-md bg-white/90 border-b border-slate-200/50 md:hidden"
-          >
-            <div className="px-4 py-3">
-              <UserSearch className="w-full" />
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* ── Mobile search dialog ──────────────────────────── */}
+      <Dialog open={mobileSearchOpen} onOpenChange={setMobileSearchOpen}>
+        <DialogContent className="top-[20%] translate-y-0 sm:max-w-md p-4 pt-8">
+          <DialogHeader className="sr-only">
+            <DialogTitle>Search</DialogTitle>
+          </DialogHeader>
+          <UserSearch
+            autoFocus
+            onSelect={() => setMobileSearchOpen(false)}
+            className="w-full"
+          />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
