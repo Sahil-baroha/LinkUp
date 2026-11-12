@@ -17,6 +17,12 @@
 import axios from "axios";
 import { toast } from "sonner";
 
+declare module "axios" {
+  export interface AxiosRequestConfig {
+    skipRateLimitToast?: boolean;
+  }
+}
+
 const apiClient = axios.create({
   baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api/v1`,
   withCredentials: true, // Required — HttpOnly cookies won't send without this
