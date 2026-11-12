@@ -72,6 +72,7 @@ export function CreatePostModal() {
     defaultValues: { body: "" },
   });
 
+  // eslint-disable-next-line react-hooks/incompatible-library -- React Hook Form watch cannot be memoized by React Compiler
   const bodyValue = watch("body") ?? "";
 
   // Pre-fill form when entering edit mode
