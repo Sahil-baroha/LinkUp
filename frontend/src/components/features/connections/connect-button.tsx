@@ -12,7 +12,7 @@
  *   - Invalidates: search, suggestions, connections, and ['user', id] queries
  */
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Check, UserPlus } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -42,12 +42,14 @@ export function ConnectButton({
   className,
 }: ConnectButtonProps) {
   const queryClient = useQueryClient();
+  const [prevPropStatus, setPrevPropStatus] = useState(connection?.status);
   const [localStatus, setLocalStatus] = useState<RelationshipStatus | null>(null);
 
-  // Sync local status if connection prop changes
-  useEffect(() => {
+  // Sync local status during render if connection prop changes (React pattern: adjusting state when props change)
+  if (connection?.status !== prevPropStatus) {
+    setPrevPropStatus(connection?.status);
     setLocalStatus(null);
-  }, [connection?.status]);
+  }
 
   const sendMutation = useSendRequest();
   const acceptMutation = useAcceptRequest();
