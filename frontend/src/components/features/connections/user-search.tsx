@@ -144,7 +144,6 @@ function UserSearchResultItem({
 
       {/* Connect status button */}
       <ConnectStatusButton
-        userId={user._id}
         isConnected={isConnected}
         hasSent={hasSent}
         hasReceived={hasReceived}
@@ -156,14 +155,12 @@ function UserSearchResultItem({
 }
 
 function ConnectStatusButton({
-  userId,
   isConnected,
   hasSent,
   hasReceived,
   onConnect,
   isPending,
 }: {
-  userId: string;
   isConnected?: boolean;
   hasSent?: boolean;
   hasReceived?: boolean;

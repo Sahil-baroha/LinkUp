@@ -15,8 +15,9 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { House, Users, User } from "lucide-react";
+import { House, Users, User, PenSquare } from "lucide-react";
 import { useAuthStore } from "@/store/auth-store";
+import { useUiStore } from "@/store/ui-store";
 import { useIncomingRequests } from "@/hooks/use-connections";
 import { Avatar } from "@/components/shared/avatar";
 import {
@@ -37,6 +38,7 @@ export function Sidebar() {
   const user = useAuthStore((s) => s.user);
   const { data: incomingRequests } = useIncomingRequests();
   const pendingCount = incomingRequests?.length ?? 0;
+  const setCreatePostModalOpen = useUiStore((s) => s.setCreatePostModalOpen);
 
   if (!user) return null;
 
@@ -129,6 +131,17 @@ export function Sidebar() {
             </TooltipContent>
           </Tooltip>
         </nav>
+
+        {/* ── Post button ───────────────────────────────────── */}
+        <div className="mt-auto px-3 pb-4">
+          <button
+            onClick={() => setCreatePostModalOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-[#4f46e5] px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 lg:justify-start"
+          >
+            <PenSquare size={16} strokeWidth={2} />
+            <span className="hidden lg:inline">Post</span>
+          </button>
+        </div>
       </aside>
     </TooltipProvider>
   );

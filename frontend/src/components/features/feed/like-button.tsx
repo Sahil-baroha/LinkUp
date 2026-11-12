@@ -20,7 +20,7 @@ import { ThumbsUp } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToggleLike } from "@/hooks/use-posts";
 import { Spinner } from "@/components/shared/spinner";
-import type { FeedPost, FeedResponse } from "@/types";
+import type { FeedResponse } from "@/types";
 import type { InfiniteData } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 

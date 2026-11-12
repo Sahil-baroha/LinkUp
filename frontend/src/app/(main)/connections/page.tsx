@@ -23,7 +23,7 @@ import {
 import { ConnectionCard } from "@/components/features/connections/connection-card";
 import { RequestCard } from "@/components/features/connections/request-card";
 import { SentCard } from "@/components/features/connections/sent-card";
-import { FullPageSpinner, EmptyState, Spinner } from "@/components/shared";
+import { FullPageSpinner, EmptyState, Spinner, PageHeader } from "@/components/shared";
 import { cn } from "@/lib/utils";
 
 type Tab = "connections" | "requests" | "sent";
@@ -60,12 +60,10 @@ export default function ConnectionsPage() {
   return (
     <div className="space-y-5">
       {/* Page heading */}
-      <div>
-        <h1 className="text-xl font-semibold text-slate-900">Network</h1>
-        <p className="mt-0.5 text-sm text-slate-400">
-          Manage your professional connections
-        </p>
-      </div>
+      <PageHeader
+        title="Network"
+        description="Manage your professional connections"
+      />
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl border border-slate-200/50 bg-white p-1">

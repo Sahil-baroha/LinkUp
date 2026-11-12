@@ -190,7 +190,7 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="email"
-                className="text-xs font-semibold text-slate-500 uppercase tracking-widest"
+                className="text-xs font-semibold text-slate-500"
               >
                 Email
               </Label>
@@ -214,7 +214,7 @@ export default function LoginPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="password"
-                className="text-xs font-semibold text-slate-500 uppercase tracking-widest"
+                className="text-xs font-semibold text-slate-500"
               >
                 Password
               </Label>

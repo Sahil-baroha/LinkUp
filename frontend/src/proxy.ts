@@ -3,7 +3,7 @@ import type { NextRequest } from 'next/server';
 
 const PUBLIC_ROUTES = ['/login', '/register'];
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Check both HttpOnly token and client-synced logged-in cookie to prevent redirect loops

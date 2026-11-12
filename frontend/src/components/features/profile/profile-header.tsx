@@ -11,7 +11,6 @@
 
 import { useState } from "react";
 import { Calendar } from "lucide-react";
-import { useAuthStore } from "@/store/auth-store";
 import {
   useConnections,
   useIncomingRequests,

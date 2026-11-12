@@ -23,7 +23,7 @@ import { useAuthStore } from "@/store/auth-store";
 import { getPost } from "@/lib/api";
 import { PostCard } from "@/components/features/feed/post-card";
 import { CommentSection } from "@/components/features/posts/comment-section";
-import { EmptyState, Spinner } from "@/components/shared";
+import { EmptyState } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function PostPage() {

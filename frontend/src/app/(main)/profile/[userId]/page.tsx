@@ -23,7 +23,7 @@ import { getUserPosts } from "@/lib/api";
 import { useUser } from "@/hooks/use-user";
 import { ProfileHeader } from "@/components/features/profile/profile-header";
 import { PostCard } from "@/components/features/feed/post-card";
-import { EmptyState, Spinner } from "@/components/shared";
+import { EmptyState } from "@/components/shared";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function ProfilePage() {
