@@ -12,7 +12,8 @@
  */
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { getUserById, updateUser } from "@/lib/api";
+import { getUserById, updateUser, updateAvatar } from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
 import type { UpdateUserPayload } from "@/types";
 
 // ─── Single user query ────────────────────────────────────────────────────────
@@ -39,5 +40,22 @@ export function useUpdateUser(userId: string) {
       queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
     },
     // onError / toast: handled in the calling component
+  });
+}
+
+// ─── Update avatar mutation ───────────────────────────────────────────────────
+
+export function useUpdateAvatar(userId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (file: File) => updateAvatar(userId, file),
+    onSuccess: (updatedUser) => {
+      queryClient.setQueryData(["user", userId], updatedUser);
+      queryClient.setQueryData(["users", userId], updatedUser);
+      queryClient.invalidateQueries({ queryKey: ["users", userId] });
+      queryClient.invalidateQueries({ queryKey: ["auth", "me"] });
+      useAuthStore.getState().setUser(updatedUser);
+    },
   });
 }
