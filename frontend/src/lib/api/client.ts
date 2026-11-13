@@ -20,6 +20,7 @@ import { toast } from "sonner";
 declare module "axios" {
   export interface AxiosRequestConfig {
     skipRateLimitToast?: boolean;
+    __retryCount?: number;
   }
 }
 
@@ -50,13 +51,46 @@ function showRateLimitToast(retryAfterHeader?: string | number) {
   toast.error(message, { id: "rate-limit-429" });
 }
 
+// ─── Waking-up UX Helpers ───────────────────────────────────────────────────
+
+const WAKE_UP_TOAST_ID = "server-waking-up";
+const MAX_WAKE_UP_RETRIES = 3;
+const WAKE_UP_RETRY_DELAY_MS = 4000;
+
+let activeWakingRequests = 0;
+
+function showWakeUpToast() {
+  if (typeof window !== "undefined") {
+    toast.loading("The server is waking up. This can take up to a minute.", {
+      id: WAKE_UP_TOAST_ID,
+    });
+  }
+}
+
+function dismissWakeUpToastIfDone() {
+  if (typeof window !== "undefined" && activeWakingRequests <= 0) {
+    activeWakingRequests = 0;
+    toast.dismiss(WAKE_UP_TOAST_ID);
+  }
+}
+
 // ─── Response Interceptor ───────────────────────────────────────────────────
 
 apiClient.interceptors.response.use(
   // Pass-through on success
-  (response) => response,
+  (response) => {
+    if (response.config?.__retryCount && response.config.__retryCount > 0) {
+      activeWakingRequests = Math.max(0, activeWakingRequests - 1);
+      dismissWakeUpToastIfDone();
+    }
+    return response;
+  },
 
   async (error) => {
+    if (axios.isCancel(error)) {
+      return Promise.reject(error);
+    }
+
     const status = error.response?.status;
 
     if (status === 401 && typeof window !== "undefined") {
@@ -85,6 +119,48 @@ apiClient.interceptors.response.use(
           error.response?.headers?.["retry-after"] ??
           error.response?.headers?.["Retry-After"];
         showRateLimitToast(retryAfter);
+      }
+    }
+
+    // Waking-up UX: 502, 503, 504 or a network error (no response)
+    const isNetworkError = !error.response;
+    const isWakeUpStatus = status === 502 || status === 503 || status === 504;
+    const isWakeUpError = isNetworkError || isWakeUpStatus;
+
+    if (isWakeUpError) {
+      const config = error.config;
+      const method = config?.method?.toLowerCase();
+      const isGet = method === "get";
+
+      if (!isGet) {
+        // Never auto-retry non-GET requests (show the friendly message only)
+        if (typeof window !== "undefined") {
+          toast("The server is waking up. This can take up to a minute.", {
+            id: WAKE_UP_TOAST_ID,
+          });
+        }
+        return Promise.reject(error);
+      }
+
+      if (config) {
+        config.__retryCount = config.__retryCount || 0;
+
+        if (config.__retryCount < MAX_WAKE_UP_RETRIES) {
+          config.__retryCount += 1;
+          if (config.__retryCount === 1) {
+            activeWakingRequests++;
+            showWakeUpToast();
+          }
+
+          await new Promise((resolve) => setTimeout(resolve, WAKE_UP_RETRY_DELAY_MS));
+
+          return apiClient(config);
+        } else {
+          // Final failure after 3 retries
+          activeWakingRequests = Math.max(0, activeWakingRequests - 1);
+          dismissWakeUpToastIfDone();
+          return Promise.reject(error);
+        }
       }
     }
 
