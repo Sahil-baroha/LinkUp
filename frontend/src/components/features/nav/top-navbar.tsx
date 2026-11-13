@@ -18,7 +18,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Bell, Search, LogOut, User as UserIcon } from "lucide-react";
+import { Bell, Search, LogOut, User as UserIcon, Settings } from "lucide-react";
 import { toast } from "sonner";
 import { useAuthStore } from "@/store/auth-store";
 import { logout } from "@/lib/api";
@@ -139,6 +139,13 @@ export function TopNavbar() {
                   >
                     <UserIcon size={14} strokeWidth={1.5} />
                     View Profile
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => router.push("/settings")}
+                    className="cursor-pointer gap-2"
+                  >
+                    <Settings size={14} strokeWidth={1.5} />
+                    Settings
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
