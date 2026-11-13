@@ -1,10 +1,9 @@
 /**
  * use-comments.ts — Comment infinite query and mutations
  *
- * Uses useInfiniteQuery (not plain useQuery) so "Load more" works without
- * re-fetching earlier pages.
+ * Uses useInfiniteQuery for page-based "Load more".
  *
- * Pagination: offset-based (page number, not cursor).
+ * Pagination: page-based (page number 1, 2, ...).
  *   CommentsResponse: { comments, total, page, limit }
  *   Next page = page + 1, stop when page >= ceil(total / limit)
  *
@@ -13,8 +12,8 @@
  *   affect other posts' comment caches.
  *
  * Mutations:
- *   addComment    — invalidates the comment list (new comment at top)
- *   deleteComment — optimistic removal from cache, restore on error
+ *   addComment    — invalidates the comment list, post cache, and feed cache
+ *   deleteComment — optimistic removal from cache, invalidates on settled
  *   updateComment — direct cache update for the single changed comment
  */
 
@@ -32,13 +31,14 @@ import {
   updateComment,
 } from "@/lib/api";
 import type { Comment, CommentsResponse } from "@/types";
+import { FEED_QUERY_KEY } from "./use-feed";
 
 // ─── Query key factory ────────────────────────────────────────────────────────
 
 const commentsKey = (postId: string) =>
   ["posts", postId, "comments", "infinite"] as const;
 
-// ─── Infinite query ───────────────────────────────────────────────────────────
+// ─── Infinite query (page-based) ──────────────────────────────────────────────
 
 export function useComments(postId: string | undefined) {
   const query = useInfiniteQuery({
@@ -59,8 +59,11 @@ export function useComments(postId: string | undefined) {
     [query.data?.pages]
   );
 
+  const total = query.data?.pages[0]?.total ?? comments.length;
+
   return {
     comments,
+    total,
     fetchNextPage: query.fetchNextPage,
     hasNextPage: query.hasNextPage,
     isFetchingNextPage: query.isFetchingNextPage,
@@ -78,13 +81,16 @@ export function useAddComment(postId: string) {
   return useMutation({
     mutationFn: (body: string) => addComment(postId, body),
     onSuccess: () => {
-      // Invalidate so the new comment appears (inserted at server-sort position)
+      // Invalidate comments list
       queryClient.invalidateQueries({ queryKey: commentsKey(postId) });
+      // Keep post and feed comment count in sync
+      queryClient.invalidateQueries({ queryKey: ["posts", postId] });
+      queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY });
     },
   });
 }
 
-// ─── Delete comment (optimistic) ──────────────────────────────────────────────
+// ─── Delete comment (optimistic) ─────────────────────────────────────────────
 
 type DeleteCommentContext = {
   previousComments: InfiniteData<CommentsResponse> | undefined;
@@ -113,7 +119,7 @@ export function useDeleteComment(postId: string) {
             ...old,
             pages: old.pages.map((page) => ({
               ...page,
-              total: page.total - 1,
+              total: Math.max(0, page.total - 1),
               comments: page.comments.filter((c) => c._id !== commentId),
             })),
           };
@@ -127,6 +133,12 @@ export function useDeleteComment(postId: string) {
       if (context?.previousComments) {
         queryClient.setQueryData(commentsKey(postId), context.previousComments);
       }
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: commentsKey(postId) });
+      queryClient.invalidateQueries({ queryKey: ["posts", postId] });
+      queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY });
     },
   });
 }
