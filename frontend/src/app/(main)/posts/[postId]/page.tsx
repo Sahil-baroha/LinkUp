@@ -27,7 +27,6 @@ export default function PostPage() {
   const router = useRouter();
   const postId = params.postId as string;
 
-  const user = useAuthStore((s) => s.user);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   const { data: post, isLoading, isError } = usePost(postId);
