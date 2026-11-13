@@ -1,12 +1,13 @@
 import { AuthService } from "../services/auth.service.js";
 import { ApiResponse } from "../utils/response.js";
 import { asyncHandler } from "../middleware/error-handler.middleware.js";
+import { env } from "../config/env.js";
 
 const authService = new AuthService();
 
 const COOKIE_OPTIONS = {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: env.NODE_ENV === "production",
     sameSite: "lax",
     maxAge: 60 * 60 * 1000 // 1 hour
 };
@@ -42,7 +43,7 @@ export const login = asyncHandler(async (req, res) => {
 export const logout = asyncHandler(async (req, res) => {
     res.clearCookie("token", {
         httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
+        secure: env.NODE_ENV === "production",
         sameSite: "lax"
     });
     return ApiResponse.success(res, null, "Logged out successfully");

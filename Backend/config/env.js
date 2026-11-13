@@ -2,7 +2,7 @@ import dotenv from "dotenv";
 import { z } from "zod";
 
 // Load .env before validating environment variables
-dotenv.config();
+dotenv.config({ quiet: true });
 
 const emptyToUndefined = (v) => (typeof v === "string" && v.trim() === "" ? undefined : v);
 
