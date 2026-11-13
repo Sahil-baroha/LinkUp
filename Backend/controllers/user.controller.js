@@ -32,7 +32,6 @@ export const updateUserProfile = asyncHandler(async (req, res) => {
     const updates = {};
     if (req.body.name !== undefined) updates.name = typeof req.body.name === "string" ? req.body.name.trim() : req.body.name;
     if (req.body.username !== undefined) updates.username = req.body.username;
-    if (req.body.profilePicture !== undefined) updates.profilePicture = req.body.profilePicture;
     if (req.body.headline !== undefined) updates.headline = typeof req.body.headline === "string" ? req.body.headline.trim() : req.body.headline;
     if (req.body.about !== undefined) updates.about = typeof req.body.about === "string" ? req.body.about.trim() : req.body.about;
     if (req.body.location !== undefined) updates.location = typeof req.body.location === "string" ? req.body.location.trim() : req.body.location;

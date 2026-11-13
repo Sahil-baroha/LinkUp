@@ -49,7 +49,6 @@ export const updateUserSchema = z.object({
         username: z.string().min(3, "Username must be at least 3 characters")
             .regex(/^[a-zA-Z0-9_]+$/, "Username can only contain letters, numbers, and underscores")
             .optional(),
-        profilePicture: z.string().url("Profile picture must be a valid URL").optional(),
         headline: z.string().trim().max(120, "Headline cannot exceed 120 characters").optional(),
         about: z.string().trim().max(2000, "About cannot exceed 2000 characters").optional(),
         location: z.string().trim().max(80, "Location cannot exceed 80 characters").optional(),
