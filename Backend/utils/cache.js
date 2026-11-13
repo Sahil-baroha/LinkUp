@@ -33,9 +33,9 @@ if (env.REDIS_URL || env.REDIS_HOST) {
     : { host: env.REDIS_HOST, port: env.REDIS_PORT || 6379 };
 
   const clientOptions = {
-    connectTimeout: 2000,         // ms to wait for TCP handshake
-    commandTimeout: 250,          // ms per command before ReplyError timeout
-    enableOfflineQueue: false,    // reject commands immediately while disconnected
+    connectTimeout: env.REDIS_CONNECT_TIMEOUT_MS, // ms to wait for TCP handshake
+    commandTimeout: env.REDIS_COMMAND_TIMEOUT_MS, // ms per command before ReplyError timeout
+    enableOfflineQueue: false, // reject commands immediately while disconnected
     maxRetriesPerRequest: 1,      // retry each command at most once
     retryStrategy(times) {
       // Never return null — always reconnect (unless shutting down).
