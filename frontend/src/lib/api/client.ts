@@ -24,7 +24,7 @@ declare module "axios" {
 }
 
 const apiClient = axios.create({
-  baseURL: `${process.env.NEXT_PUBLIC_API_URL}/api/v1`,
+  baseURL: "/api/v1",
   withCredentials: true, // Required — HttpOnly cookies won't send without this
   headers: {
     "Content-Type": "application/json",
