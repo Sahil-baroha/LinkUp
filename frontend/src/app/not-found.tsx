@@ -1,29 +1,30 @@
+"use client";
+
 /**
- * not-found.tsx — 404 Page
+ * not-found.tsx — 404 Not Found Page
  *
- * Server Component. GoToFeedButton is a tiny 'use client' wrapper
- * so useRouter() can be called without making the entire page a client component.
+ * Restyled with shared EmptyState primitive and design tokens.
  */
 
-import { GoToFeedButton } from "./go-to-feed-button";
+import { useRouter } from "next/navigation";
+import { FileQuestion } from "lucide-react";
+import { EmptyState } from "@/components/shared";
 
 export default function NotFound() {
+  const router = useRouter();
+
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#f7f9fb] px-6 text-center">
-      {/* 404 display */}
-      <p className="text-8xl font-bold tracking-tight text-slate-100 select-none">
-        404
-      </p>
-
-      <div className="mt-4 space-y-2">
-        <h1 className="text-2xl font-semibold text-slate-900">Page not found</h1>
-        <p className="text-sm text-slate-500">
-          The page you&apos;re looking for doesn&apos;t exist.
-        </p>
-      </div>
-
-      <div className="mt-8">
-        <GoToFeedButton />
+    <div className="flex min-h-screen items-center justify-center bg-[#f7f9fb] p-6">
+      <div className="w-full max-w-md rounded-2xl border border-slate-200/80 bg-white p-8 shadow-xs">
+        <EmptyState
+          icon={FileQuestion}
+          title="Page not found"
+          description="The page you're looking for doesn't exist or has been moved."
+          action={{
+            label: "Go to feed",
+            onClick: () => router.push("/feed"),
+          }}
+        />
       </div>
     </div>
   );

@@ -1,10 +1,9 @@
 /**
  * use-comments.ts — Comment infinite query and mutations
  *
- * Uses useInfiniteQuery (not plain useQuery) so "Load more" works without
- * re-fetching earlier pages.
+ * Uses useInfiniteQuery for page-based "Load more".
  *
- * Pagination: offset-based (page number, not cursor).
+ * Pagination: page-based (page number 1, 2, ...).
  *   CommentsResponse: { comments, total, page, limit }
  *   Next page = page + 1, stop when page >= ceil(total / limit)
  *
@@ -13,8 +12,8 @@
  *   affect other posts' comment caches.
  *
  * Mutations:
- *   addComment    — invalidates the comment list (new comment at top)
- *   deleteComment — optimistic removal from cache, restore on error
+ *   addComment    — optimistic add, invalidates post & feed caches on settled
+ *   deleteComment — optimistic removal from cache, invalidates post & feed caches on settled
  *   updateComment — direct cache update for the single changed comment
  */
 
@@ -31,14 +30,16 @@ import {
   deleteComment,
   updateComment,
 } from "@/lib/api";
+import { useAuthStore } from "@/store/auth-store";
 import type { Comment, CommentsResponse } from "@/types";
+import { FEED_QUERY_KEY } from "./use-feed";
 
 // ─── Query key factory ────────────────────────────────────────────────────────
 
-const commentsKey = (postId: string) =>
+export const commentsKey = (postId: string) =>
   ["posts", postId, "comments", "infinite"] as const;
 
-// ─── Infinite query ───────────────────────────────────────────────────────────
+// ─── Infinite query (page-based) ──────────────────────────────────────────────
 
 export function useComments(postId: string | undefined) {
   const query = useInfiniteQuery({
@@ -59,8 +60,11 @@ export function useComments(postId: string | undefined) {
     [query.data?.pages]
   );
 
+  const total = query.data?.pages[0]?.total ?? comments.length;
+
   return {
     comments,
+    total,
     fetchNextPage: query.fetchNextPage,
     hasNextPage: query.hasNextPage,
     isFetchingNextPage: query.isFetchingNextPage,
@@ -70,21 +74,94 @@ export function useComments(postId: string | undefined) {
   };
 }
 
-// ─── Add comment ──────────────────────────────────────────────────────────────
+// ─── Add comment (optimistic) ─────────────────────────────────────────────────
+
+type AddCommentContext = {
+  previousComments: InfiniteData<CommentsResponse> | undefined;
+};
 
 export function useAddComment(postId: string) {
   const queryClient = useQueryClient();
 
   return useMutation({
     mutationFn: (body: string) => addComment(postId, body),
-    onSuccess: () => {
-      // Invalidate so the new comment appears (inserted at server-sort position)
+
+    onMutate: async (newCommentText): Promise<AddCommentContext> => {
+      await queryClient.cancelQueries({ queryKey: commentsKey(postId) });
+
+      const previousComments =
+        queryClient.getQueryData<InfiniteData<CommentsResponse>>(
+          commentsKey(postId)
+        );
+
+      const currentUser = useAuthStore.getState().user;
+
+      if (currentUser) {
+        const optimisticComment: Comment = {
+          _id: `temp-${Date.now()}`,
+          postId,
+          authorId: {
+            _id: currentUser._id,
+            name: currentUser.name,
+            username: currentUser.username,
+            profilePicture: currentUser.profilePicture,
+            headline: currentUser.headline,
+          },
+          body: newCommentText,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        queryClient.setQueryData<InfiniteData<CommentsResponse>>(
+          commentsKey(postId),
+          (old) => {
+            if (!old) {
+              return {
+                pageParams: [1],
+                pages: [
+                  {
+                    comments: [optimisticComment],
+                    total: 1,
+                    page: 1,
+                    limit: 20,
+                  },
+                ],
+              };
+            }
+            return {
+              ...old,
+              pages: old.pages.map((page, idx) =>
+                idx === 0
+                  ? {
+                      ...page,
+                      total: page.total + 1,
+                      comments: [optimisticComment, ...page.comments],
+                    }
+                  : page
+              ),
+            };
+          }
+        );
+      }
+
+      return { previousComments };
+    },
+
+    onError: (_err, _vars, context) => {
+      if (context?.previousComments) {
+        queryClient.setQueryData(commentsKey(postId), context.previousComments);
+      }
+    },
+
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: commentsKey(postId) });
+      queryClient.invalidateQueries({ queryKey: ["posts", postId] });
+      queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY });
     },
   });
 }
 
-// ─── Delete comment (optimistic) ──────────────────────────────────────────────
+// ─── Delete comment (optimistic) ─────────────────────────────────────────────
 
 type DeleteCommentContext = {
   previousComments: InfiniteData<CommentsResponse> | undefined;
@@ -113,7 +190,7 @@ export function useDeleteComment(postId: string) {
             ...old,
             pages: old.pages.map((page) => ({
               ...page,
-              total: page.total - 1,
+              total: Math.max(0, page.total - 1),
               comments: page.comments.filter((c) => c._id !== commentId),
             })),
           };
@@ -127,6 +204,12 @@ export function useDeleteComment(postId: string) {
       if (context?.previousComments) {
         queryClient.setQueryData(commentsKey(postId), context.previousComments);
       }
+    },
+
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: commentsKey(postId) });
+      queryClient.invalidateQueries({ queryKey: ["posts", postId] });
+      queryClient.invalidateQueries({ queryKey: FEED_QUERY_KEY });
     },
   });
 }

@@ -3,62 +3,63 @@
 /**
  * register/page.tsx — Authentication: Register
  *
- * Stitch layout: Same two-panel split as Login.
- *
- * Refinements applied (mirrors login refinements + register-specific fixes):
- *   - aria-invalid for field error styling
- *   - h-10 input override
- *   - Password show/hide toggle
- *   - Username format hint text below field
- *   - Button: cursor-pointer, hover:bg-slate-700, active:scale-[0.98], transition-all
- *   - Left panel: radial gradient depth + grid texture
- *   - Error banner: AnimatePresence smooth fade-in
- *   - noValidate on form
- *   - autoFocus on name field
+ * Requirements:
+ *   - Client Zod rules mirror backend registerSchema
+ *   - Server field errors through mapServerErrors
+ *   - Other errors as a toast
+ *   - Submit disabled while loading
+ *   - Show/hide password toggle
+ *   - Keep redirects and ?from= support
+ *   - Design tokens and shared components, no uppercase
  */
 
-import { useState, useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { motion, AnimatePresence } from "framer-motion";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useForm } from "react-hook-form";
 import * as z from "zod";
-import { AlertCircle, Eye, EyeOff } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
 import { register as apiRegister, login } from "@/lib/api";
 import { useAuthStore } from "@/store/auth-store";
+import { mapServerErrors } from "@/lib/errors";
 import { Spinner } from "@/components/shared/spinner";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
-// ─── Schema ───────────────────────────────────────────────────────────────────
+// ─── Schema matching Backend registerSchema ──────────────────────────────────
 
 const registerSchema = z.object({
-  name: z.string().min(1, "Full name is required"),
+  name: z.string().min(1, "Name is required"),
   username: z
     .string()
     .min(3, "Username must be at least 3 characters")
-    .regex(/^[a-zA-Z0-9_]+$/, "Only letters, numbers, and underscores allowed"),
-  email: z.string().email("Enter a valid email address"),
+    .regex(
+      /^[a-zA-Z0-9_]+$/,
+      "Username can only contain letters, numbers, and underscores"
+    ),
+  email: z.string().email("Invalid email address"),
   password: z.string().min(6, "Password must be at least 6 characters"),
 });
 
 type RegisterValues = z.infer<typeof registerSchema>;
 
-// ─── Page ─────────────────────────────────────────────────────────────────────
-
-export default function RegisterPage() {
+function RegisterForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const from = searchParams.get("from");
+  const destination = from && from.startsWith("/") ? from : "/feed";
+
   const setUser = useAuthStore((s) => s.setUser);
   const clearAuth = useAuthStore((s) => s.clearAuth);
   const hasHydrated = useAuthStore((s) => s._hasHydrated);
 
   const [isLoading, setIsLoading] = useState(false);
-  const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  // Clear stale local auth state on mount (middleware handles redirecting authenticated users)
+  // Clear stale local auth state on mount
   useEffect(() => {
     if (hasHydrated) {
       clearAuth();
@@ -76,25 +77,31 @@ export default function RegisterPage() {
 
   async function onSubmit(values: RegisterValues) {
     setIsLoading(true);
-    setServerError(null);
     try {
-      // Step 1: Create account
+      // 1. Register user
       await apiRegister({
-        name: values.name,
-        username: values.username,
-        email: values.email,
+        name: values.name.trim(),
+        username: values.username.trim(),
+        email: values.email.trim(),
         password: values.password,
       });
 
-      // Step 2: Auto-login (avoids sending user back to login page)
-      const user = await login({ email: values.email, password: values.password });
+      // 2. Auto-login on success
+      const user = await login({
+        email: values.email.trim(),
+        password: values.password,
+      });
       setUser(user);
-      router.push("/feed");
+      toast.success("Account created successfully!");
+      router.push(destination);
     } catch (error: unknown) {
       const axiosError = error as {
         response?: {
           status?: number;
-          data?: { message?: string; errors?: { path: string; message: string }[] };
+          data?: {
+            message?: string;
+            errors?: { field: string; message: string }[];
+          };
         };
       };
 
@@ -102,25 +109,36 @@ export default function RegisterPage() {
       const data = axiosError.response?.data;
 
       if (status === 409) {
-        // Conflict — map to the specific conflicting field
         const msg = data?.message?.toLowerCase() ?? "";
         if (msg.includes("email")) {
           setError("email", { message: "This email is already registered." });
         } else if (msg.includes("username")) {
-          setError("username", { message: "This username is already taken." });
+          setError("username", {
+            message: "This username is already taken.",
+          });
         } else {
-          setServerError(data?.message || "Account already exists.");
+          toast.error(
+            data?.message || "An account with this email or username already exists."
+          );
         }
-      } else if (status === 400 && data?.errors?.length) {
-        // Validation errors from backend — map each to its RHF field
-        data.errors.forEach(({ path, message }) => {
-          const field = path as keyof RegisterValues;
-          if (["name", "username", "email", "password"].includes(field)) {
-            setError(field, { message });
-          }
-        });
+        return;
+      }
+
+      const serverErrors = data?.errors;
+      if (serverErrors && Array.isArray(serverErrors)) {
+        const unmatched = mapServerErrors(serverErrors, setError, [
+          "name",
+          "username",
+          "email",
+          "password",
+        ]);
+        if (unmatched.length > 0) {
+          toast.error(unmatched.join(". "));
+        }
       } else {
-        setServerError(data?.message || "Registration failed. Please try again.");
+        const msg =
+          data?.message || "Registration failed. Please check your information.";
+        toast.error(msg);
       }
     } finally {
       setIsLoading(false);
@@ -129,65 +147,48 @@ export default function RegisterPage() {
 
   return (
     <div className="flex min-h-screen">
-      {/* ── Left brand panel ───────────────────────────────────── */}
+      {/* Left brand panel */}
       <div
         className="hidden lg:flex lg:w-1/2 flex-col justify-between p-12 text-white relative overflow-hidden"
         style={{
           background:
-            "radial-gradient(ellipse 80% 60% at 20% 40%, rgba(79,70,229,0.18) 0%, transparent 60%), #0f172a",
+            "radial-gradient(ellipse 80% 60% at 20% 40%, rgba(79,70,229,0.18) 0%, transparent 70%), #0f172a",
         }}
       >
-        {/* Subtle grid texture overlay */}
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 opacity-[0.03]"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.5) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.5) 1px, transparent 1px)",
-            backgroundSize: "40px 40px",
-          }}
-        />
-
-        {/* Logo */}
-        <div className="relative flex items-center gap-2.5">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4f46e5] text-white text-sm font-bold shadow-lg shadow-indigo-500/30">
+        <div className="flex items-center gap-3">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white font-bold shadow-md shadow-brand/30">
             L
           </div>
-          <span className="text-lg font-semibold tracking-tight">LinkUp</span>
+          <span className="text-xl font-bold tracking-tight">LinkUp</span>
         </div>
 
-        {/* Headline */}
-        <div className="relative space-y-4">
-          <h1 className="text-[2.75rem] font-semibold leading-tight tracking-tight">
-            Connect with<br />clarity.
+        <div className="max-w-md space-y-4">
+          <p className="text-xs font-semibold text-brand tracking-wide">
+            Professional network
+          </p>
+          <h1 className="text-4xl font-bold leading-tight tracking-tight">
+            Build your network.
           </h1>
-          <p className="max-w-xs text-base leading-relaxed text-slate-400">
-            Join the premier network for professionals who value signal over
-            noise. A white-glove digital environment designed for focused
-            collaboration.
+          <p className="text-base text-slate-300 leading-relaxed">
+            Connect with peers, share thoughtful perspectives, and discover
+            exciting opportunities on LinkUp.
           </p>
         </div>
 
-        {/* Footer */}
-        <p className="relative text-xs text-slate-500">
-          © 2024 LinkUp Professional. Elevated networking.
+        <p className="text-xs text-slate-400">
+          © {new Date().getFullYear()} LinkUp, Inc. All rights reserved.
         </p>
       </div>
 
-      {/* ── Right form panel ───────────────────────────────────── */}
-      <div className="flex flex-1 items-center justify-center bg-white px-6 py-12">
-        <motion.div
-          initial={{ opacity: 0, x: 24 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.4, ease: "easeOut" }}
-          className="w-full max-w-[400px] space-y-8"
-        >
+      {/* Right form panel */}
+      <div className="flex flex-1 items-center justify-center bg-white px-6 py-12 lg:px-16">
+        <div className="w-full max-w-sm space-y-8">
           {/* Mobile logo */}
           <div className="flex items-center gap-2.5 lg:hidden">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#4f46e5] text-white text-sm font-bold shadow-sm shadow-indigo-500/20">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand text-white text-sm font-bold shadow-sm">
               L
             </div>
-            <span className="text-base font-semibold tracking-tight text-[#0f172a]">
+            <span className="text-base font-semibold tracking-tight text-slate-900">
               LinkUp
             </span>
           </div>
@@ -198,42 +199,23 @@ export default function RegisterPage() {
               Create an account
             </h2>
             <p className="text-sm text-slate-500">
-              Join the LinkUp professional network today.
+              Join LinkUp and start connecting today.
             </p>
           </div>
-
-          {/* Server error banner */}
-          <AnimatePresence mode="wait">
-            {serverError && (
-              <motion.div
-                key="error"
-                initial={{ opacity: 0, y: -8 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -8 }}
-                transition={{ duration: 0.2 }}
-                role="alert"
-                aria-live="polite"
-                className="flex items-start gap-2.5 rounded-lg border border-red-200 bg-red-50 px-4 py-3"
-              >
-                <AlertCircle size={16} className="mt-0.5 shrink-0 text-red-500" />
-                <p className="text-sm text-red-700">{serverError}</p>
-              </motion.div>
-            )}
-          </AnimatePresence>
 
           {/* Form */}
           <form
             onSubmit={handleSubmit(onSubmit)}
             noValidate
-            className="space-y-5"
+            className="space-y-4"
           >
             {/* Full Name */}
             <div className="space-y-1.5">
               <Label
                 htmlFor="name"
-                className="text-xs font-semibold text-slate-500"
+                className="text-xs font-medium text-slate-700"
               >
-                Full Name
+                Full name
               </Label>
               <Input
                 id="name"
@@ -246,7 +228,9 @@ export default function RegisterPage() {
                 className="h-10 px-3 text-sm"
               />
               {errors.name && (
-                <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.name.message}
+                </p>
               )}
             </div>
 
@@ -254,7 +238,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="username"
-                className="text-xs font-semibold text-slate-500"
+                className="text-xs font-medium text-slate-700"
               >
                 Username
               </Label>
@@ -268,7 +252,9 @@ export default function RegisterPage() {
                 className="h-10 px-3 text-sm"
               />
               {errors.username ? (
-                <p className="text-xs text-red-500 mt-1">{errors.username.message}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.username.message}
+                </p>
               ) : (
                 <p className="text-xs text-slate-400 mt-1">
                   Letters, numbers, and underscores only
@@ -280,7 +266,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="email"
-                className="text-xs font-semibold text-slate-500"
+                className="text-xs font-medium text-slate-700"
               >
                 Email
               </Label>
@@ -295,7 +281,9 @@ export default function RegisterPage() {
                 className="h-10 px-3 text-sm"
               />
               {errors.email && (
-                <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.email.message}
+                </p>
               )}
             </div>
 
@@ -303,7 +291,7 @@ export default function RegisterPage() {
             <div className="space-y-1.5">
               <Label
                 htmlFor="password"
-                className="text-xs font-semibold text-slate-500"
+                className="text-xs font-medium text-slate-700"
               >
                 Password
               </Label>
@@ -322,19 +310,23 @@ export default function RegisterPage() {
                   tabIndex={-1}
                   onClick={() => setShowPassword((v) => !v)}
                   aria-label={showPassword ? "Hide password" : "Show password"}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-700 transition-colors focus:outline-none cursor-pointer"
                 >
                   {showPassword ? (
-                    <EyeOff size={15} strokeWidth={1.5} />
+                    <EyeOff size={16} strokeWidth={1.5} />
                   ) : (
-                    <Eye size={15} strokeWidth={1.5} />
+                    <Eye size={16} strokeWidth={1.5} />
                   )}
                 </button>
               </div>
               {errors.password ? (
-                <p className="text-xs text-red-500 mt-1">{errors.password.message}</p>
+                <p className="text-xs text-red-500 mt-1">
+                  {errors.password.message}
+                </p>
               ) : (
-                <p className="text-xs text-slate-400 mt-1">Minimum 6 characters</p>
+                <p className="text-xs text-slate-400 mt-1">
+                  Minimum 6 characters
+                </p>
               )}
             </div>
 
@@ -342,10 +334,10 @@ export default function RegisterPage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="flex w-full cursor-pointer items-center justify-center gap-2.5 rounded-lg bg-[#0f172a] py-3 text-sm font-semibold text-white transition-all duration-200 hover:bg-slate-700 active:scale-[0.98] active:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex w-full cursor-pointer items-center justify-center gap-2 rounded-lg bg-slate-900 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50 mt-2"
             >
               {isLoading && <Spinner size="sm" />}
-              Create Account
+              <span>Create account</span>
             </button>
           </form>
 
@@ -354,13 +346,27 @@ export default function RegisterPage() {
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-semibold text-[#4f46e5] underline-offset-2 hover:underline transition-colors"
+              className="font-medium text-brand underline-offset-2 hover:underline transition-colors"
             >
               Sign in
             </Link>
           </p>
-        </motion.div>
+        </div>
       </div>
     </div>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="flex min-h-screen items-center justify-center">
+          <Spinner size="lg" />
+        </div>
+      }
+    >
+      <RegisterForm />
+    </Suspense>
   );
 }
