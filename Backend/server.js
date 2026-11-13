@@ -61,6 +61,7 @@ const start = async () => {
         await mongoose.connect(env.MONGO_URL, {
             family: 4,   // Force IPv4
             serverSelectionTimeoutMS: 10000,
+            maxPoolSize: env.MONGO_MAX_POOL_SIZE,
         });
         console.log("DB Connected Successfully!");
 

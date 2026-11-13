@@ -160,7 +160,8 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          NEXT_PUBLIC_API_URL: http://localhost:5000
+          # Placeholder origin required for production Next.js build rewrites
+          BACKEND_ORIGIN: http://localhost:5000
 
       - name: Dependency audit (non-blocking)
         run: |

@@ -36,6 +36,30 @@ const envSchema = z.object({
         z.coerce.number().int("REDIS_PORT must be an integer").optional()
     ),
 
+    REDIS_COMMAND_TIMEOUT_MS: z.preprocess(
+        emptyToUndefined,
+        z.coerce.number().int("REDIS_COMMAND_TIMEOUT_MS must be an integer").min(1).default(250)
+    ),
+    REDIS_CONNECT_TIMEOUT_MS: z.preprocess(
+        emptyToUndefined,
+        z.coerce.number().int("REDIS_CONNECT_TIMEOUT_MS must be an integer").min(1).default(2000)
+    ),
+    MONGO_MAX_POOL_SIZE: z.preprocess(
+        emptyToUndefined,
+        z.coerce.number().int("MONGO_MAX_POOL_SIZE must be an integer").min(1).default(10)
+    ),
+    DEBUG_IP_ENDPOINT: z.preprocess(
+        (v) => {
+            if (typeof v === "string") {
+                const lower = v.trim().toLowerCase();
+                if (lower === "true" || lower === "1") return true;
+                if (lower === "false" || lower === "0" || lower === "") return false;
+            }
+            return v;
+        },
+        z.boolean().default(false)
+    ),
+
     CLOUDINARY_CLOUD_NAME: z.preprocess(emptyToUndefined, z.string().optional()),
     CLOUDINARY_API_KEY: z.preprocess(emptyToUndefined, z.string().optional()),
     CLOUDINARY_API_SECRET: z.preprocess(emptyToUndefined, z.string().optional()),

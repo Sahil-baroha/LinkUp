@@ -23,6 +23,7 @@ import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 
 import { register as apiRegister, login } from "@/lib/api";
+import apiClient from "@/lib/api/client";
 import { useAuthStore } from "@/store/auth-store";
 import { mapServerErrors } from "@/lib/errors";
 import { Spinner } from "@/components/shared/spinner";
@@ -65,6 +66,11 @@ function RegisterForm() {
       clearAuth();
     }
   }, [hasHydrated, clearAuth]);
+
+  // Warm backend on mount (fire-and-forget)
+  useEffect(() => {
+    apiClient.get("/health").catch(() => {});
+  }, []);
 
   const {
     register,

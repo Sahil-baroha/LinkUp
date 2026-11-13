@@ -7,7 +7,7 @@ const authService = new AuthService();
 const COOKIE_OPTIONS = {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
-    sameSite: "strict",
+    sameSite: "lax",
     maxAge: 60 * 60 * 1000 // 1 hour
 };
 
@@ -43,7 +43,7 @@ export const logout = asyncHandler(async (req, res) => {
     res.clearCookie("token", {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
-        sameSite: "strict"
+        sameSite: "lax"
     });
     return ApiResponse.success(res, null, "Logged out successfully");
 });

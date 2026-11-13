@@ -41,13 +41,26 @@ app.use(cors({
 app.use(express.json());
 app.use(cookieParser());
 
-// ── Health and Readiness checks (mounted at root, unauthenticated) ───────────
-app.get("/health", (_req, res) => {
+// ── Health and Readiness checks (unauthenticated, not rate limited) ───────────
+const healthHandler = (_req, res) => {
     res.status(200).json({
         status: "ok",
         uptime: process.uptime(),
     });
-});
+};
+
+app.get("/health", healthHandler);
+app.get("/api/v1/health", healthHandler);
+
+if (env.DEBUG_IP_ENDPOINT) {
+    app.get("/api/v1/debug/ip", (req, res) => {
+        res.status(200).json({
+            ip: req.ip,
+            xForwardedFor: req.headers["x-forwarded-for"] || null,
+            trustProxy: app.get("trust proxy"),
+        });
+    });
+}
 
 app.get("/ready", async (_req, res) => {
     let mongoStatus = "down";
