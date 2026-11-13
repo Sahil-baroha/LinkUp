@@ -1,0 +1,21 @@
+# A free Render service uses about 744 of its 750 monthly free hours when always on (31-day month); enable only while sharing the link.
+
+name: Keepalive
+
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+
+permissions: {}
+
+jobs:
+  keepalive:
+    name: Backend Keepalive
+    runs-on: ubuntu-latest
+    if: vars.KEEPALIVE_ENABLED == 'true' && vars.KEEPALIVE_URL != ''
+    steps:
+      - name: Ping backend health
+        env:
+          KEEPALIVE_URL: ${{ vars.KEEPALIVE_URL }}
+        run: curl -fsS --max-time 90 "$KEEPALIVE_URL/health"
