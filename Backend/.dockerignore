@@ -24,3 +24,8 @@ npm-debug.log*
 # Docker files themselves (not needed inside the image)
 Dockerfile
 .dockerignore
+
+# Tests and test config
+tests/
+vitest.config.js
+*.test.js

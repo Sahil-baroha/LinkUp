@@ -9,14 +9,20 @@ import { env } from "../config/env.js";
 // --- state tracking for transition-only logging ---
 let lastStatus = null; // "up" | "down" | "disabled"
 let isShuttingDown = false;
+let wasEverUp = false;
 
 function logTransition(next) {
   if (next !== lastStatus) {
     lastStatus = next;
     if (next === "up") {
+      wasEverUp = true;
       console.log("[Cache] Redis connection established.");
     } else if (next === "down") {
-      console.warn("[Cache] Redis connection lost, running without cache.");
+      if (wasEverUp) {
+        console.warn("[Cache] Redis connection lost, running without cache.");
+      } else {
+        console.warn("[Cache] Redis not reachable at startup, running without cache.");
+      }
     }
     // "disabled" needs no log — env.js startup already makes it visible
   }

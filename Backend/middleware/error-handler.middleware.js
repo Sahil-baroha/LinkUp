@@ -1,5 +1,6 @@
 import { AppError, ValidationError } from "../utils/errors.js";
 import { ApiResponse } from "../utils/response.js";
+import { env } from "../config/env.js";
 
 export const errorHandler = (err, req, res, next) => {
     if (err instanceof AppError) {
@@ -20,7 +21,7 @@ export const errorHandler = (err, req, res, next) => {
     });
 
     const message =
-        process.env.NODE_ENV === "production" ? "Internal server error" : err.message;
+        env.NODE_ENV === "production" ? "Internal server error" : err.message;
     return ApiResponse.error(res, message, 500);
 };
 

@@ -2,6 +2,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import { userRepo } from "../repositories/user.repository.js";
 import { ConflictError, UnauthorizedError } from "../utils/errors.js";
+import { env } from "../config/env.js";
 
 export class AuthService {
     /**
@@ -66,6 +67,6 @@ export class AuthService {
      * conventional _generateToken prefix which is not enforced by the runtime.
      */
     #generateToken(payload) {
-        return jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "1h", algorithm: "HS256" });
+        return jwt.sign(payload, env.JWT_SECRET, { expiresIn: "1h", algorithm: "HS256" });
     }
 }

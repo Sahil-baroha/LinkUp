@@ -1,0 +1,2 @@
+# All text files: LF line endings in the index; Git converts on checkout per platform
+* text=auto eol=lf

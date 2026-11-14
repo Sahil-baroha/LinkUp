@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import { userRepo } from "../repositories/user.repository.js";
 import { AppError, UnauthorizedError } from "../utils/errors.js";
+import { env } from "../config/env.js";
 
 export const authenticate = async (req, res, next) => {
     try {
@@ -10,7 +11,7 @@ export const authenticate = async (req, res, next) => {
             throw new UnauthorizedError("No token provided");
         }
 
-        const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
+        const payload = jwt.verify(token, env.JWT_SECRET, { algorithms: ["HS256"] });
 
         // C1: Cache-aside user load — verify the account is still active.
         // userRepo.findById uses Redis (plain object on hit) falling back to Mongo

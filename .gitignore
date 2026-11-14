@@ -59,3 +59,8 @@ thumbs.db
 # OS Generated
 Icon?
 ehthumbs.db
+*.stackdump
+
+# Docker local directories (not part of the repo; kept outside for local use)
+/docker
+/Backend/docker

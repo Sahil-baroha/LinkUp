@@ -134,7 +134,6 @@ export interface UserSearchResult {
 export interface UpdateUserPayload {
   name?: string;
   username?: string;
-  profilePicture?: string; // Must be a valid URL string
   headline?: string;
   about?: string;
   location?: string;

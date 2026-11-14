@@ -174,4 +174,19 @@ describe("Users Integration Tests", () => {
         expect(typeof res4.body.message).toBe("string");
         expect(res4.body.message.length).toBeGreaterThan(0);
     });
+
+    it("PATCH own profile: rejects profilePicture update with 400 (avatars via PUT only)", async () => {
+        const loginRes = await request(app)
+            .post("/api/v1/auth/login")
+            .send({ email: "useralpha@example.com", password: "password123456" });
+        const cookie = loginRes.headers["set-cookie"];
+        const userId = loginRes.body.data.user._id;
+
+        const res = await request(app)
+            .patch(`/api/v1/users/${userId}`)
+            .set("Cookie", cookie)
+            .send({ profilePicture: "https://example.com/avatar.png" });
+        expect(res.status).toBe(400);
+        expect(res.body.success).toBe(false);
+    });
 });
